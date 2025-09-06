@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Главная страница{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto text-center">
+        <h1>Добро пожаловать в научную систему института!</h1>
+        <p class="lead">Платформа для публикации и поиска научных работ</p>
+
+        {% if user.is_authenticated %}
+            <div class="mt-4">
+                <a href="{% url 'add_publication' %}" class="btn btn-primary me-2">Добавить публикацию</a>
+                <a href="{% url 'all_publications' %}" class="btn btn-success me-2">Все публикации</a>
+                <a href="{% url 'search' %}" class="btn btn-info">Поиск</a>
+            </div>
+
+            {% if latest_publications %}
+            <div class="mt-5">
+                <h3>Последние публикации</h3>
+                {% for publication in latest_publications %}
+                <div class="card mb-2">
+                    <div class="card-body text-start">
+                        <h6 class="card-title">
+                            <a href="{% url 'publication_detail' publication.pk %}" class="text-decoration-none">
+                                {{ publication.title }}
+                            </a>
+                        </h6>
+                        <p class="card-text small">{{ publication.content|truncatewords:20 }}</p>
+                        <small class="text-muted">
+                            Автор: {{ publication.author.userprofile.full_name|default:publication.author.username }} |
+                            {{ publication.created_at|date:"d.m.Y" }}
+                        </small>
+                    </div>
+                </div>
+                {% endfor %}
+                <a href="{% url 'all_publications' %}" class="btn btn-outline-primary mt-2">Все публикации →</a>
+            </div>
+            {% endif %}
+
+        {% else %}
+            <div class="mt-4">
+                <a href="{% url 'login' %}" class="btn btn-primary me-2">Войти</a>
+                <a href="{% url 'register' %}" class="btn btn-outline-primary">Зарегистрироваться</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

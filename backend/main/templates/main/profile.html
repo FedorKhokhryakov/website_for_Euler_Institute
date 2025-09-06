@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Личный кабинет{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <h2>Личный кабинет</h2>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Информация о сотруднике</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">ФИО *</label>
+                                {{ form.full_name }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Лаборатория *</label>
+                                {{ form.laboratory }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Год рождения *</label>
+                                {{ form.birth_year }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Год окончания вуза *</label>
+                                {{ form.graduation_year }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Статус *</label>
+                                {{ form.status }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Должность *</label>
+                                {{ form.position }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Звание *</label>
+                                {{ form.rank }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Ставка *</label>
+                                {{ form.rate }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Ученая степень</label>
+                                {{ form.academic_degree }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Год получения степени</label>
+                                {{ form.degree_year }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5>Мои публикации ({{ publications.count }})</h5>
+            </div>
+            <div class="card-body">
+                {% if publications %}
+                    {% for publication in publications %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <h6>{{ publication.title }}</h6>
+                        <p class="text-muted small">{{ publication.created_at|date:"d.m.Y H:i" }}</p>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">У вас пока нет публикаций.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

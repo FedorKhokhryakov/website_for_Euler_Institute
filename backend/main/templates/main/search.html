@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Поиск{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Расширенный поиск</h2>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="get" action="{% url 'search' %}">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <input type="text" name="query" class="form-control" 
+                                   placeholder="Введите поисковый запрос..." value="{{ query }}">
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="search_type" 
+                                       id="search_publications" value="publications" 
+                                       {% if search_type == 'publications' %}checked{% endif %}>
+                                <label class="form-check-label" for="search_publications">Публикации</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="search_type" 
+                                       id="search_users" value="users" 
+                                       {% if search_type == 'users' %}checked{% endif %}>
+                                <label class="form-check-label" for="search_users">Пользователи</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">Искать</button>
+                        {% if query %}
+                            <a href="{% url 'search' %}" class="btn btn-outline-secondary">Сбросить</a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if query %}
+            {% if search_type == 'publications' and results.publications %}
+                <h4>Результаты поиска публикаций ({{ results.publications|length }})</h4>
+                {% for publication in results.publications %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <a href="{% url 'publication_detail' publication.pk %}" class="text-decoration-none">
+                                {{ publication.title }}
+                            </a>
+                        </h5>
+                        <p class="card-text">{{ publication.content|truncatewords:30 }}</p>
+                        <small class="text-muted">
+                            Автор: {{ publication.author.userprofile.full_name|default:publication.author.username }} | 
+                            {{ publication.created_at|date:"d.m.Y H:i" }}
+                        </small>
+                    </div>
+                </div>
+                {% endfor %}
+            {% elif search_type == 'users' and results.users %}
+                <h4>Результаты поиска пользователей ({{ results.users|length }})</h4>
+                <div class="row">
+                    {% for user in results.users %}
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <a href="{% url 'user_publications' user.id %}" class="text-decoration-none">
+                                        {{ user.userprofile.full_name|default:user.username }}
+                                    </a>
+                                </h5>
+                                <p class="card-text">
+                                    <strong>Лаборатория:</strong> {{ user.userprofile.laboratory }}<br>
+                                    <strong>Должность:</strong> {{ user.userprofile.position }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    По запросу "{{ query }}" ничего не найдено.
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
