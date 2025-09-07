@@ -53,6 +53,17 @@ const authStore = useAuthStore()
 
 const loginUser = async () => {
   try {
+
+    if (!email.value || !password.value) {
+      error.value = "Заполните все поля"
+      return
+    }
+    
+    if (!email.value.includes('@')) {
+      error.value = "Введите корректный email"
+      return
+    }
+
     const response = await axios.post("http://localhost:8000/api/login/", {
       email: email.value,
       password: password.value
@@ -60,9 +71,16 @@ const loginUser = async () => {
 
     authStore.setToken(response.data.token)
 
-    router.push("/")
+    router.push("/main")
+
   } catch (err) {
-    error.value = "Неверный email или пароль"
+    if (err.response?.status === 400) {
+      error.value = "Неверный email или пароль"
+    } else if (err.response?.status === 500) {
+      error.value = "Ошибка сервера"
+    } else {
+      error.value = "Ошибка соединения"
+    }
   }
 }
 </script>
