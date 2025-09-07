@@ -26,7 +26,7 @@
 
         <button
           type="submit"
-          class="w-full bg-green-500 text-white p-2 rounded-lg hover:bg-green-800 transition"
+          class="w-full bg-green-600 text-white p-2 rounded-lg hover:bg-green-800 transition"
         >
           Войти
         </button>

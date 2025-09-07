@@ -1,12 +1,14 @@
 import { createRouter, createWebHistory } from "vue-router"
 import Login from "../views/Login.vue"
 import Main from "../views/Main.vue"
+import NotFound from "../views/NotFound.vue"
 import { useAuthStore } from "../stores/auth"
 
 const routes = [
   { path: "/", redirect: "/login" },
   { path: "/login", component: Login, meta: {requiresAuth: false} },
-  { path: "/main", component: Main, meta: {requiresAuth: true} }
+  { path: "/main", component: Main, meta: {requiresAuth: true} },
+  { path: "/:pathMatch(.*)*", component: NotFound }
 ]
 
 const router = createRouter({
@@ -16,7 +18,7 @@ const router = createRouter({
 
 let authStore = null
 
-router.beforeEach(async (to, from, next) => {
+/*router.beforeEach(async (to, from, next) => {
   if (!authStore) {
     authStore = useAuthStore()
     await authStore.initialize()
@@ -31,7 +33,7 @@ router.beforeEach(async (to, from, next) => {
   } else {
     next()
   }
-})
+})*/
 
 export default router
 

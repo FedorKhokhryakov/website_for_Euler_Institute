@@ -1,4 +1,28 @@
 <script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAuthStore } from './stores/auth'
+
+const route = useRoute()
+const authStore = useAuthStore()
+
+const showAuthButton = computed(() => {
+  return route.path !== '/login'
+})
+
+const authButtonConfig = computed(() => {
+  if (authStore.isAuthenticated) {
+    return {
+      text: 'Личный кабинет',
+      link: '/account',
+    }
+  } else {
+    return {
+      text: 'Войти',
+      link: '/login', 
+    }
+  }
+})
 </script>
 
 <template>
@@ -14,13 +38,13 @@
 					class="h-8 w-8 object-contain"
 				  />
 				</div>
-				<span class="text-xl font-bold">Институт Эйлера</span>
+				<span class="text-xl font-bold">Институт им. Эйлера</span>
 			  </div>
 
 
-			  <router-link to="/login">
-				<button class="bg-white text-green-900 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-all shadow-md hover:shadow-lg">
-				  Войти
+			  <router-link v-if="showAuthButton" :to=authButtonConfig.link>
+				<button class="bg-white text-green-900 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-all">
+				   {{ authButtonConfig.text }}
 				</button>
 			  </router-link>
 			</div>

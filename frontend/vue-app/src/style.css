@@ -2,3 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+button {
+    background: #22c55e;
+}
+button:focus {
+    background: #166534;
+}
