@@ -18,14 +18,29 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">ФИО *</label>
-                                {{ form.full_name }}
+                                <label class="form-label">Имя пользователя</label>
+                                {{ form.username }}
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Лаборатория *</label>
+                                <label class="form-label">Email</label>
+                                {{ form.email }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Лаборатория</label>
                                 {{ form.laboratory }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Должность</label>
+                                {{ form.position }}
                             </div>
                         </div>
                     </div>
@@ -33,19 +48,19 @@
                     <div class="row">
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label">Год рождения *</label>
-                                {{ form.birth_year }}
+                                <label class="form-label">Год рождения</label>
+                                {{ form.year_of_birth }}
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label">Год окончания вуза *</label>
-                                {{ form.graduation_year }}
+                                <label class="form-label">Год окончания вуза</label>
+                                {{ form.year_of_graduation }}
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label class="form-label">Статус *</label>
+                                <label class="form-label">Статус</label>
                                 {{ form.status }}
                             </div>
                         </div>
@@ -54,38 +69,29 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Должность *</label>
-                                {{ form.position }}
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Звание *</label>
-                                {{ form.rank }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Ставка *</label>
-                                {{ form.rate }}
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
                                 <label class="form-label">Ученая степень</label>
                                 {{ form.academic_degree }}
                             </div>
                         </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Год получения степени</label>
+                                {{ form.year_of_degree }}
+                            </div>
+                        </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Год получения степени</label>
-                                {{ form.degree_year }}
+                                <label class="form-label">Звание</label>
+                                {{ form.title }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Ставка</label>
+                                {{ form.fte }}
                             </div>
                         </div>
                     </div>
@@ -97,19 +103,20 @@
 
         <div class="card">
             <div class="card-header">
-                <h5>Мои публикации ({{ publications.count }})</h5>
+                <h5>Мои публикации ({{ posts.count }})</h5>
             </div>
             <div class="card-body">
-                {% if publications %}
-                    {% for publication in publications %}
+                {% if posts %}
+                    {% for post in posts %}
                     <div class="border-bottom pb-2 mb-2">
-                        <h6>{{ publication.title }}</h6>
-                        <p class="text-muted small">{{ publication.created_at|date:"d.m.Y H:i" }}</p>
+                        <h6>{{ post.type }} ({{ post.year }})</h6>
+                        <p class="text-muted small">{{ post.created_at|date:"d.m.Y H:i" }}</p>
                     </div>
                     {% endfor %}
                 {% else %}
                     <p class="text-muted">У вас пока нет публикаций.</p>
                 {% endif %}
+                <a href="{% url 'add_publication' %}" class="btn btn-success mt-3">Добавить публикацию</a>
             </div>
         </div>
     </div>

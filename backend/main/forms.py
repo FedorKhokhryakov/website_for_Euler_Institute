@@ -1,16 +1,15 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth.models import User
-from .models import Publication, UserProfile
+from .models import User, Post, PostAuthor
 
 
-class RegistrationForm(UserCreationForm):
+class CustomUserCreationForm(UserCreationForm):
+    username = forms.CharField(
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Имя пользователя'})
+    )
     email = forms.EmailField(
         required=True,
         widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email'})
-    )
-    username = forms.CharField(
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Имя пользователя'})
     )
     password1 = forms.CharField(
         widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Пароль'})
@@ -19,40 +18,50 @@ class RegistrationForm(UserCreationForm):
         widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Подтверждение пароля'})
     )
 
-    # Поля профиля - все текстовые
-    full_name = forms.CharField(
-        max_length=200,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ФИО'})
-    )
     laboratory = forms.CharField(
         max_length=100,
+        required=False,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Лаборатория'})
     )
-    birth_year = forms.IntegerField(
+    year_of_birth = forms.IntegerField(
+        required=False,
         widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Год рождения'})
     )
-    graduation_year = forms.IntegerField(
+    year_of_graduation = forms.IntegerField(
+        required=False,
         widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Год окончания вуза'})
     )
     academic_degree = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ученая степень'})
     )
-    degree_year = forms.IntegerField(
+    year_of_degree = forms.IntegerField(
         required=False,
         widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Год получения степени'})
     )
     status = forms.CharField(
+        required=False,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Статус'})
     )
     position = forms.CharField(
+        required=False,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Должность'})
     )
-    rank = forms.CharField(
+    title = forms.CharField(
+        required=False,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Звание'})
     )
-    rate = forms.CharField(
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ставка'})
+    fte = forms.DecimalField(
+        required=False,
+        max_digits=3,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ставка (0.0-1.0)',
+            'step': '0.01',
+            'min': '0',
+            'max': '1'
+        })
     )
 
     class Meta:
@@ -65,56 +74,110 @@ class RegistrationForm(UserCreationForm):
 
         if commit:
             user.save()
-
-            # Создаем профиль с данными из формы
-            UserProfile.objects.create(
-                user=user,
-                full_name=self.cleaned_data['full_name'],
-                laboratory=self.cleaned_data['laboratory'],
-                birth_year=self.cleaned_data['birth_year'],
-                graduation_year=self.cleaned_data['graduation_year'],
-                academic_degree=self.cleaned_data['academic_degree'],
-                degree_year=self.cleaned_data.get('degree_year'),
-                status=self.cleaned_data['status'],
-                position=self.cleaned_data['position'],
-                rank=self.cleaned_data['rank'],
-                rate=self.cleaned_data['rate']
-            )
+            # Обновляем дополнительные поля
+            user.laboratory = self.cleaned_data['laboratory']
+            user.year_of_birth = self.cleaned_data['year_of_birth']
+            user.year_of_graduation = self.cleaned_data['year_of_graduation']
+            user.academic_degree = self.cleaned_data['academic_degree']
+            user.year_of_degree = self.cleaned_data['year_of_degree']
+            user.status = self.cleaned_data['status']
+            user.position = self.cleaned_data['position']
+            user.title = self.cleaned_data['title']
+            user.fte = self.cleaned_data['fte']
+            user.save()
 
         return user
 
 
 class UserProfileForm(forms.ModelForm):
     class Meta:
-        model = UserProfile
+        model = User
         fields = [
-            'full_name', 'laboratory', 'birth_year', 'graduation_year',
-            'academic_degree', 'degree_year', 'status', 'position',
-            'rank', 'rate'
+            'username', 'email', 'laboratory', 'year_of_birth',
+            'year_of_graduation', 'academic_degree', 'year_of_degree',
+            'status', 'position', 'title', 'fte'
         ]
         widgets = {
-            'full_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'laboratory': forms.TextInput(attrs={'class': 'form-control'}),
-            'birth_year': forms.NumberInput(attrs={'class': 'form-control'}),
-            'graduation_year': forms.NumberInput(attrs={'class': 'form-control'}),
+            'year_of_birth': forms.NumberInput(attrs={'class': 'form-control'}),
+            'year_of_graduation': forms.NumberInput(attrs={'class': 'form-control'}),
             'academic_degree': forms.TextInput(attrs={'class': 'form-control'}),
-            'degree_year': forms.NumberInput(attrs={'class': 'form-control'}),
+            'year_of_degree': forms.NumberInput(attrs={'class': 'form-control'}),
             'status': forms.TextInput(attrs={'class': 'form-control'}),
             'position': forms.TextInput(attrs={'class': 'form-control'}),
-            'rank': forms.TextInput(attrs={'class': 'form-control'}),
-            'rate': forms.TextInput(attrs={'class': 'form-control'}),
-        }
-
-
-class PublicationForm(forms.ModelForm):
-    class Meta:
-        model = Publication
-        fields = ['title', 'content', 'results']
-        widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
-            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'results': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'fte': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '0',
+                'max': '1'
+            }),
         }
+
+
+class PostForm(forms.ModelForm):
+    authors = forms.ModelMultipleChoiceField(
+        queryset=User.objects.all(),
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
+        required=True
+    )
+
+    class Meta:
+        model = Post
+        fields = [
+            'type', 'tome', 'number', 'article_identification_number',
+            'pages', 'year', 'language', 'web_page', 'comment', 'authors'
+        ]
+        widgets = {
+            'type': forms.Select(attrs={'class': 'form-control'}),
+            'tome': forms.NumberInput(attrs={'class': 'form-control'}),
+            'number': forms.NumberInput(attrs={'class': 'form-control'}),
+            'article_identification_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'pages': forms.NumberInput(attrs={'class': 'form-control'}),
+            'year': forms.NumberInput(attrs={'class': 'form-control'}),
+            'language': forms.TextInput(attrs={'class': 'form-control'}),
+            'web_page': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://...'}),
+            'comment': forms.Textarea(
+                attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Комментарии к публикации...'}),
+        }
+
+        labels = {
+            'type': 'Тип публикации',
+            'tome': 'Том',
+            'number': 'Номер',
+            'article_identification_number': 'Идентификационный номер статьи',
+            'pages': 'Количество страниц',
+            'year': 'Год публикации',
+            'language': 'Язык',
+            'web_page': 'Веб-страница',
+            'comment': 'Комментарий',
+            'authors': 'Авторы',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Устанавливаем значение по умолчанию для языка
+        self.fields['language'].initial = 'Русский'
+
+    def save(self, commit=True):
+        post = super().save(commit=False)
+
+        if commit:
+            post.save()
+            # Сохраняем авторов
+            self.save_authors(post)
+
+        return post
+
+    def save_authors(self, post):
+        PostAuthor.objects.filter(post=post).delete()
+
+        authors = self.cleaned_data['authors']
+        for order, author in enumerate(authors):
+            PostAuthor.objects.create(post=post, user=author, order=order)
+
 
 class SearchForm(forms.Form):
     query = forms.CharField(
@@ -126,9 +189,53 @@ class SearchForm(forms.Form):
     )
     search_type = forms.ChoiceField(
         choices=[
-            ('publications', 'Публикации'),
+            ('posts', 'Публикации'),
             ('users', 'Пользователи')
         ],
         widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
-        initial='publications'
+        initial='posts'
     )
+
+
+class PostFilterForm(forms.Form):
+    TYPE_CHOICES = [
+        ('', 'Все типы'),
+        ('article', 'Статья'),
+        ('conference', 'Конференция'),
+        ('book', 'Книга'),
+        ('report', 'Отчет'),
+        ('other', 'Другое'),
+    ]
+
+    YEAR_CHOICES = [('', 'Все годы')] + [(year, str(year)) for year in range(2020, 2031)]
+
+    type = forms.ChoiceField(
+        choices=TYPE_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
+    year = forms.ChoiceField(
+        choices=YEAR_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
+    laboratory = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Фильтр по лаборатории...'
+        })
+    )
+
+
+
+class QuickPostEditForm(forms.ModelForm):
+    class Meta:
+        model = Post
+        fields = ['status', 'comment']
+        widgets = {
+            'status': forms.Select(attrs={'class': 'form-control'}),
+            'comment': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }

@@ -1,17 +1,15 @@
-from django.contrib.auth.models import User
 from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
-from .forms import RegistrationForm, PublicationForm, UserProfileForm, SearchForm
-from .models import Publication, UserProfile
+from .forms import CustomUserCreationForm, UserProfileForm, PostForm, SearchForm
+from .models import User, Post, PostAuthor
 
 
 def register(request):
     if request.method == 'POST':
-        form = RegistrationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)
@@ -20,7 +18,7 @@ def register(request):
         else:
             messages.error(request, 'Пожалуйста, исправьте ошибки в форме.')
     else:
-        form = RegistrationForm()
+        form = CustomUserCreationForm()
 
     return render(request, 'registration/register.html', {'form': form})
 
@@ -28,103 +26,97 @@ def register(request):
 @login_required
 def home(request):
     # Показываем последние публикации на главной
-    latest_publications = Publication.objects.all().order_by('-created_at')[:5]
+    latest_posts = Post.objects.all().order_by('-created_at')[:5]
     return render(request, 'main/home.html', {
-        'latest_publications': latest_publications
+        'latest_posts': latest_posts
     })
 
 
 @login_required
 def profile(request):
-    # Получаем профиль или создаем пустой, если его нет
-    try:
-        profile = UserProfile.objects.get(user=request.user)
-    except UserProfile.DoesNotExist:
-        # Создаем пустой профиль, если его нет
-        profile = UserProfile.objects.create(
-            user=request.user,
-            full_name=request.user.username,
-            laboratory="",
-            birth_year=0,
-            graduation_year=0,
-            academic_degree="",
-            status="",
-            position="",
-            rank="",
-            rate=""
-        )
-
-    publications = Publication.objects.filter(author=request.user)
-
     if request.method == 'POST':
-        form = UserProfileForm(request.POST, instance=profile)
+        form = UserProfileForm(request.POST, instance=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Профиль успешно обновлен!')
             return redirect('profile')
     else:
-        form = UserProfileForm(instance=profile)
+        form = UserProfileForm(instance=request.user)
+
+    # Получаем публикации пользователя через связь PostAuthor
+    user_posts = Post.objects.filter(authors__user=request.user).distinct()
 
     return render(request, 'main/profile.html', {
-        'user': request.user,
-        'profile': profile,
-        'publications': publications,
-        'form': form
+        'form': form,
+        'posts': user_posts
     })
 
 
 @login_required
-def add_publication(request):
+def add_post(request):
     if request.method == 'POST':
-        form = PublicationForm(request.POST)
+        form = PostForm(request.POST)
         if form.is_valid():
-            publication = form.save(commit=False)
-            publication.author = request.user
-            publication.save()
+            post = form.save(commit=False)
+            post.save()
+
+            # Добавляем текущего пользователя как автора, если его нет в выбранных
+            authors = form.cleaned_data['authors']
+            if request.user not in authors:
+                # Создаем PostAuthor для текущего пользователя
+                max_order = PostAuthor.objects.filter(post=post).aggregate(models.Max('order'))['order__max'] or 0
+                PostAuthor.objects.create(post=post, user=request.user, order=max_order + 1)
+
             messages.success(request, 'Публикация успешно добавлена!')
             return redirect('profile')
     else:
-        form = PublicationForm()
-    return render(request, 'main/add_publication.html', {'form': form})
+        # Инициализируем форму с текущим пользователем как автором по умолчанию
+        form = PostForm(initial={'authors': [request.user]})
+
+    return render(request, 'main/add_post.html', {'form': form})
 
 
 @login_required
-def all_publications(request):
-    publications = Publication.objects.all().order_by('-created_at')
+def all_posts(request):
+    posts = Post.objects.all().order_by('-created_at')
     form = SearchForm(request.GET or None)
 
     query = request.GET.get('query')
     if query:
-        publications = publications.filter(
-            Q(title__icontains=query) |
-            Q(content__icontains=query) |
-            Q(results__icontains=query) |
-            Q(author__username__icontains=query) |
-            Q(author__userprofile__full_name__icontains=query)
-        )
+        posts = posts.filter(
+            Q(article_identification_number__icontains=query) |
+            Q(comment__icontains=query) |
+            Q(authors__user__username__icontains=query) |
+            Q(authors__user__email__icontains=query) |
+            Q(authors__user__laboratory__icontains=query)
+        ).distinct()
 
-    return render(request, 'main/all_publications.html', {
-        'publications': publications,
+    return render(request, 'main/all_posts.html', {
+        'posts': posts,
         'form': form,
         'query': query
     })
 
 
 @login_required
-def publication_detail(request, pk):
-    publication = get_object_or_404(Publication, pk=pk)
-    return render(request, 'main/publication_detail.html', {
-        'publication': publication
+def post_detail(request, pk):
+    post = get_object_or_404(Post, pk=pk)
+    authors = post.authors.all().order_by('order')
+
+    return render(request, 'main/post_detail.html', {
+        'post': post,
+        'authors': authors
     })
 
 
 @login_required
-def user_publications(request, user_id):
+def user_posts(request, user_id):
     user = get_object_or_404(User, pk=user_id)
-    publications = Publication.objects.filter(author=user).order_by('-created_at')
-    return render(request, 'main/user_publications.html', {
+    posts = Post.objects.filter(authors__user=user).order_by('-created_at')
+
+    return render(request, 'main/user_posts.html', {
         'user': user,
-        'publications': publications
+        'posts': posts
     })
 
 
@@ -133,23 +125,24 @@ def search(request):
     form = SearchForm(request.GET or None)
     results = {}
     query = request.GET.get('query', '')
-    search_type = request.GET.get('search_type', 'publications')
+    search_type = request.GET.get('search_type', 'posts')
 
     if query:
-        if search_type == 'publications':
-            results['publications'] = Publication.objects.filter(
-                Q(title__icontains=query) |
-                Q(content__icontains=query) |
-                Q(results__icontains=query) |
-                Q(author__username__icontains=query) |
-                Q(author__userprofile__full_name__icontains=query)
-            ).order_by('-created_at')
+        if search_type == 'posts':
+            results['posts'] = Post.objects.filter(
+                Q(article_identification_number__icontains=query) |
+                Q(comment__icontains=query) |
+                Q(authors__user__username__icontains=query) |
+                Q(authors__user__email__icontains=query) |
+                Q(authors__user__laboratory__icontains=query)
+            ).distinct().order_by('-created_at')
         else:
             results['users'] = User.objects.filter(
                 Q(username__icontains=query) |
-                Q(userprofile__full_name__icontains=query) |
-                Q(userprofile__laboratory__icontains=query) |
-                Q(userprofile__position__icontains=query)
+                Q(email__icontains=query) |
+                Q(laboratory__icontains=query) |
+                Q(position__icontains=query) |
+                Q(academic_degree__icontains=query)
             ).distinct()
 
     return render(request, 'main/search.html', {
@@ -168,11 +161,53 @@ def all_users(request):
     if query:
         users = users.filter(
             Q(username__icontains=query) |
-            Q(userprofile__full_name__icontains=query) |
-            Q(userprofile__laboratory__icontains=query)
+            Q(email__icontains=query) |
+            Q(laboratory__icontains=query) |
+            Q(position__icontains=query)
         )
 
     return render(request, 'main/all_users.html', {
         'users': users,
         'query': query
     })
+
+
+# Дополнительные views для управления публикациями
+@login_required
+def edit_post(request, pk):
+    post = get_object_or_404(Post, pk=pk)
+
+    # Проверяем, является ли пользователь автором
+    if not post.authors.filter(user=request.user).exists():
+        messages.error(request, 'У вас нет прав для редактирования этой публикации.')
+        return redirect('all_posts')
+
+    if request.method == 'POST':
+        form = PostForm(request.POST, instance=post)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Публикация успешно обновлена!')
+            return redirect('post_detail', pk=post.pk)
+    else:
+        # Инициализируем форму с текущими авторами
+        current_authors = [pa.user for pa in post.authors.all()]
+        form = PostForm(instance=post, initial={'authors': current_authors})
+
+    return render(request, 'main/edit_post.html', {'form': form, 'post': post})
+
+
+@login_required
+def delete_post(request, pk):
+    post = get_object_or_404(Post, pk=pk)
+
+    # Проверяем, является ли пользователь автором
+    if not post.authors.filter(user=request.user).exists():
+        messages.error(request, 'У вас нет прав для удаления этой публикации.')
+        return redirect('all_posts')
+
+    if request.method == 'POST':
+        post.delete()
+        messages.success(request, 'Публикация успешно удалена!')
+        return redirect('profile')
+
+    return render(request, 'main/delete_post.html', {'post': post})

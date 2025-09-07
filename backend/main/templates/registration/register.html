@@ -64,6 +64,14 @@
                                         {% endfor %}
                                     </div>
                                 {% endif %}
+                                <div class="form-text">
+                                    <ul class="small">
+                                        <li>Пароль не должен быть слишком похож на другую вашу личную информацию.</li>
+                                        <li>Пароль должен содержать как минимум 8 символов.</li>
+                                        <li>Пароль не должен быть слишком простым.</li>
+                                        <li>Пароль не может состоять только из цифр.</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -86,35 +94,14 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">ФИО *</label>
-                                {{ form.full_name }}
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Лаборатория *</label>
+                                <label class="form-label">Лаборатория</label>
                                 {{ form.laboratory }}
                             </div>
                         </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Год рождения *</label>
-                                {{ form.birth_year }}
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">Год окончания вуза *</label>
-                                {{ form.graduation_year }}
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">Статус *</label>
-                                {{ form.status }}
+                                <label class="form-label">Год рождения</label>
+                                {{ form.year_of_birth }}
                             </div>
                         </div>
                     </div>
@@ -122,38 +109,54 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Должность *</label>
+                                <label class="form-label">Год окончания вуза</label>
+                                {{ form.year_of_graduation }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Должность</label>
                                 {{ form.position }}
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Звание *</label>
-                                {{ form.rank }}
-                            </div>
-                        </div>
                     </div>
 
                     <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Ставка *</label>
-                                {{ form.rate }}
-                            </div>
-                        </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Ученая степень</label>
                                 {{ form.academic_degree }}
                             </div>
                         </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Год получения степени</label>
+                                {{ form.year_of_degree }}
+                            </div>
+                        </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Год получения степени</label>
-                                {{ form.degree_year }}
+                                <label class="form-label">Статус</label>
+                                {{ form.status }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Звание</label>
+                                {{ form.title }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Ставка</label>
+                                {{ form.fte }}
+                                <div class="form-text">Например: 1.0 (полная ставка), 0.5 (полставки)</div>
                             </div>
                         </div>
                     </div>

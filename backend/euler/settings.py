@@ -1,13 +1,19 @@
 import os
+import environ
 from pathlib import Path
+
+env = environ.Env()
+environ.Env.read_env()
+
+AUTH_USER_MODEL = 'main.User'
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = '131'  # Замените на случайный ключ
-
-DEBUG = True
+SECRET_KEY = env('SECRET_KEY')
+DEBUG = env.bool('DEBUG', default=False)
 
 ALLOWED_HOSTS = []
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -46,13 +52,6 @@ TEMPLATES = [
         },
     },
 ]
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
 
 AUTH_PASSWORD_VALIDATORS = [
     {
