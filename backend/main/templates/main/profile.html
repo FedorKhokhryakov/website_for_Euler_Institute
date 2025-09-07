@@ -109,14 +109,25 @@
                 {% if posts %}
                     {% for post in posts %}
                     <div class="border-bottom pb-2 mb-2">
-                        <h6>{{ post.type }} ({{ post.year }})</h6>
-                        <p class="text-muted small">{{ post.created_at|date:"d.m.Y H:i" }}</p>
+                        <h6>
+                            <a href="{% url 'post_detail' post.pk %}" class="text-decoration-none">
+                                {{ post.get_type_display }} ({{ post.year }})
+                            </a>
+                        </h6>
+                        <p class="text-muted small">
+                            {{ post.created_at|date:"d.m.Y H:i" }} |
+                            Статус: <span class="badge bg-secondary">{{ post.get_status_display }}</span>
+                            {% if post.article_identification_number %}
+                                | ID: {{ post.article_identification_number }}
+                            {% endif %}
+                        </p>
                     </div>
                     {% endfor %}
                 {% else %}
                     <p class="text-muted">У вас пока нет публикаций.</p>
                 {% endif %}
-                <a href="{% url 'add_publication' %}" class="btn btn-success mt-3">Добавить публикацию</a>
+
+                <a href="{% url 'add_post' %}" class="btn btn-success mt-3">Добавить публикацию</a>
             </div>
         </div>
     </div>

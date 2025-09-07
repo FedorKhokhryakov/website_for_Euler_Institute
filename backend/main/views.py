@@ -1,8 +1,9 @@
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+
 from .forms import CustomUserCreationForm, UserProfileForm, PostForm, SearchForm
 from .models import User, Post, PostAuthor
 
@@ -25,7 +26,7 @@ def register(request):
 
 @login_required
 def home(request):
-    latest_posts = Post.objects.all().order_by('-created_at')[:5]
+    latest_posts = Post.objects.prefetch_related('authors__user').order_by('-created_at')[:5]
     return render(request, 'main/home.html', {
         'latest_posts': latest_posts
     })
@@ -42,7 +43,7 @@ def profile(request):
     else:
         form = UserProfileForm(instance=request.user)
 
-    user_posts = Post.objects.filter(authors__user=request.user).distinct()
+    user_posts = Post.objects.filter(authors__user=request.user).prefetch_related('authors__user').distinct()
 
     return render(request, 'main/profile.html', {
         'form': form,
@@ -59,9 +60,8 @@ def add_post(request):
             post.save()
 
             authors = form.cleaned_data['authors']
-            if request.user not in authors:
-                max_order = PostAuthor.objects.filter(post=post).aggregate(models.Max('order'))['order__max'] or 0
-                PostAuthor.objects.create(post=post, user=request.user, order=max_order + 1)
+            for order, author in enumerate(authors):
+                PostAuthor.objects.get_or_create(post=post, user=author, defaults={'order': order})
 
             messages.success(request, 'Публикация успешно добавлена!')
             return redirect('profile')
@@ -73,18 +73,21 @@ def add_post(request):
 
 @login_required
 def all_posts(request):
-    posts = Post.objects.all().order_by('-created_at')
+    posts = Post.objects.prefetch_related('authors__user').order_by('-created_at')
     form = SearchForm(request.GET or None)
 
     query = request.GET.get('query')
     if query:
-        posts = posts.filter(
+        posts = Post.objects.prefetch_related('authors__user').filter(
             Q(article_identification_number__icontains=query) |
             Q(comment__icontains=query) |
             Q(authors__user__username__icontains=query) |
             Q(authors__user__email__icontains=query) |
             Q(authors__user__laboratory__icontains=query)
-        ).distinct()
+        ).distinct().order_by('-created_at')
+
+    #print(f"DEBUG: Query = '{query}'")
+    #print(f"DEBUG: Found {posts.count()} posts")
 
     return render(request, 'main/all_posts.html', {
         'posts': posts,
@@ -92,22 +95,25 @@ def all_posts(request):
         'query': query
     })
 
-
 @login_required
 def post_detail(request, pk):
-    post = get_object_or_404(Post, pk=pk)
-    authors = post.authors.all().order_by('order')
-
+    post = get_object_or_404(Post.objects.prefetch_related('authors__user'), pk=pk)
     return render(request, 'main/post_detail.html', {
-        'post': post,
-        'authors': authors
+        'post': post
     })
 
 
 @login_required
 def user_posts(request, user_id):
     user = get_object_or_404(User, pk=user_id)
-    posts = Post.objects.filter(authors__user=user).order_by('-created_at')
+
+    post_ids = PostAuthor.objects.filter(user=user).values_list('post_id', flat=True)
+    posts = Post.objects.filter(
+        id__in=post_ids
+    ).prefetch_related('authors__user').order_by('-created_at')
+
+    print(f"DEBUG: Found {len(post_ids)} post IDs for user {user.username}")
+    print(f"DEBUG: Found {posts.count()} posts for user {user.username}")
 
     return render(request, 'main/user_posts.html', {
         'user': user,

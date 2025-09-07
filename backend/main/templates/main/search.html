@@ -18,13 +18,13 @@
                         <div class="col-md-4">
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="search_type" 
-                                       id="search_publications" value="publications" 
-                                       {% if search_type == 'publications' %}checked{% endif %}>
-                                <label class="form-check-label" for="search_publications">Публикации</label>
+                                       id="search_posts" value="posts"
+                                       {% if search_type == 'posts' %}checked{% endif %}>
+                                <label class="form-check-label" for="search_posts">Публикации</label>
                             </div>
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" name="search_type" 
-                                       id="search_users" value="users" 
+                                <input class="form-check-input" type="radio" name="search_type"
+                                       id="search_users" value="users"
                                        {% if search_type == 'users' %}checked{% endif %}>
                                 <label class="form-check-label" for="search_users">Пользователи</label>
                             </div>
@@ -41,21 +41,41 @@
         </div>
 
         {% if query %}
-            {% if search_type == 'publications' and results.publications %}
-                <h4>Результаты поиска публикаций ({{ results.publications|length }})</h4>
-                {% for publication in results.publications %}
+            {% if search_type == 'posts' and results.posts %}
+                <h4>Результаты поиска публикаций ({{ results.posts|length }})</h4>
+                {% for post in results.posts %}
                 <div class="card mb-3">
                     <div class="card-body">
                         <h5 class="card-title">
-                            <a href="{% url 'publication_detail' publication.pk %}" class="text-decoration-none">
-                                {{ publication.title }}
+                            <a href="{% url 'post_detail' post.pk %}" class="text-decoration-none">
+                                {{ post.get_type_display }} ({{ post.year }})
                             </a>
                         </h5>
-                        <p class="card-text">{{ publication.content|truncatewords:30 }}</p>
-                        <small class="text-muted">
-                            Автор: {{ publication.author.userprofile.full_name|default:publication.author.username }} | 
-                            {{ publication.created_at|date:"d.m.Y H:i" }}
-                        </small>
+
+                        {% if post.article_identification_number %}
+                        <p class="card-text">
+                            <strong>ID статьи:</strong> {{ post.article_identification_number }}
+                        </p>
+                        {% endif %}
+
+                        {% if post.comment %}
+                        <p class="card-text">{{ post.comment|truncatewords:30 }}</p>
+                        {% endif %}
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                Авторы:
+                                {% for author in post.authors.all %}
+                                    {{ author.user.username }}{% if not forloop.last %}, {% endif %}
+                                {% empty %}
+                                    <span class="text-warning">Нет авторов</span>
+                                {% endfor %}
+                            </small>
+                            <small class="text-muted">
+                                {{ post.created_at|date:"d.m.Y H:i" }} |
+                                Статус: <span class="badge bg-secondary">{{ post.get_status_display }}</span>
+                            </small>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
@@ -67,13 +87,13 @@
                         <div class="card h-100">
                             <div class="card-body">
                                 <h5 class="card-title">
-                                    <a href="{% url 'user_publications' user.id %}" class="text-decoration-none">
-                                        {{ user.userprofile.full_name|default:user.username }}
+                                    <a href="{% url 'user_posts' user.id %}" class="text-decoration-none">
+                                        {{ user.username }}
                                     </a>
                                 </h5>
                                 <p class="card-text">
-                                    <strong>Лаборатория:</strong> {{ user.userprofile.laboratory }}<br>
-                                    <strong>Должность:</strong> {{ user.userprofile.position }}
+                                    <strong>Лаборатория:</strong> {{ user.laboratory|default:"Не указана" }}<br>
+                                    <strong>Должность:</strong> {{ user.position|default:"Не указана" }}
                                 </p>
                             </div>
                         </div>

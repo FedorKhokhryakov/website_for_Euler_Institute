@@ -10,8 +10,8 @@
 
         {% if user.is_authenticated %}
             <div class="mt-4">
-                <a href="{% url 'add_publication' %}" class="btn btn-primary me-2">Добавить публикацию</a>
-                <a href="{% url 'all_publications' %}" class="btn btn-success me-2">Все публикации</a>
+                <a href="{% url 'add_post' %}" class="btn btn-primary me-2">Добавить публикацию</a>
+                <a href="{% url 'all_posts' %}" class="btn btn-success me-2">Все публикации</a>
                 <a href="{% url 'search' %}" class="btn btn-info">Поиск</a>
             </div>
 
@@ -22,7 +22,7 @@
                 <div class="card mb-2">
                     <div class="card-body text-start">
                         <h6 class="card-title">
-                            <a href="{% url 'publication_detail' publication.pk %}" class="text-decoration-none">
+                            <a href="{% url 'post_detail' publication.pk %}" class="text-decoration-none">
                                 {{ publication.title }}
                             </a>
                         </h6>
@@ -34,7 +34,7 @@
                     </div>
                 </div>
                 {% endfor %}
-                <a href="{% url 'all_publications' %}" class="btn btn-outline-primary mt-2">Все публикации →</a>
+                <a href="{% url 'all_posts' %}" class="btn btn-outline-primary mt-2">Все публикации →</a>
             </div>
             {% endif %}
 
