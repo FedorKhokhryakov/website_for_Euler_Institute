@@ -74,7 +74,6 @@ class CustomUserCreationForm(UserCreationForm):
 
         if commit:
             user.save()
-            # Обновляем дополнительные поля
             user.laboratory = self.cleaned_data['laboratory']
             user.year_of_birth = self.cleaned_data['year_of_birth']
             user.year_of_graduation = self.cleaned_data['year_of_graduation']
@@ -158,7 +157,6 @@ class PostForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Устанавливаем значение по умолчанию для языка
         self.fields['language'].initial = 'Русский'
 
     def save(self, commit=True):
@@ -166,7 +164,6 @@ class PostForm(forms.ModelForm):
 
         if commit:
             post.save()
-            # Сохраняем авторов
             self.save_authors(post)
 
         return post

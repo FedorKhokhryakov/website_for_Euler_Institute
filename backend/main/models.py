@@ -5,7 +5,6 @@ from django.urls import reverse
 
 
 class User(AbstractUser):
-    # Переопределяем email поле чтобы сделать unique
     email = models.EmailField(_('email address'), unique=True)
 
     laboratory = models.CharField(max_length=100, blank=True, verbose_name="Лаборатория")
@@ -19,7 +18,6 @@ class User(AbstractUser):
     fte = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True, verbose_name="Ставка")
     is_admin = models.BooleanField(default=False, verbose_name="Администратор")
 
-    # Убираем first_name и last_name из AbstractUser, используем наши
     first_name = None
     last_name = None
 

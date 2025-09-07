@@ -25,7 +25,6 @@ def register(request):
 
 @login_required
 def home(request):
-    # Показываем последние публикации на главной
     latest_posts = Post.objects.all().order_by('-created_at')[:5]
     return render(request, 'main/home.html', {
         'latest_posts': latest_posts
@@ -43,7 +42,6 @@ def profile(request):
     else:
         form = UserProfileForm(instance=request.user)
 
-    # Получаем публикации пользователя через связь PostAuthor
     user_posts = Post.objects.filter(authors__user=request.user).distinct()
 
     return render(request, 'main/profile.html', {
@@ -60,17 +58,14 @@ def add_post(request):
             post = form.save(commit=False)
             post.save()
 
-            # Добавляем текущего пользователя как автора, если его нет в выбранных
             authors = form.cleaned_data['authors']
             if request.user not in authors:
-                # Создаем PostAuthor для текущего пользователя
                 max_order = PostAuthor.objects.filter(post=post).aggregate(models.Max('order'))['order__max'] or 0
                 PostAuthor.objects.create(post=post, user=request.user, order=max_order + 1)
 
             messages.success(request, 'Публикация успешно добавлена!')
             return redirect('profile')
     else:
-        # Инициализируем форму с текущим пользователем как автором по умолчанию
         form = PostForm(initial={'authors': [request.user]})
 
     return render(request, 'main/add_post.html', {'form': form})
@@ -172,12 +167,10 @@ def all_users(request):
     })
 
 
-# Дополнительные views для управления публикациями
 @login_required
 def edit_post(request, pk):
     post = get_object_or_404(Post, pk=pk)
 
-    # Проверяем, является ли пользователь автором
     if not post.authors.filter(user=request.user).exists():
         messages.error(request, 'У вас нет прав для редактирования этой публикации.')
         return redirect('all_posts')
@@ -189,7 +182,6 @@ def edit_post(request, pk):
             messages.success(request, 'Публикация успешно обновлена!')
             return redirect('post_detail', pk=post.pk)
     else:
-        # Инициализируем форму с текущими авторами
         current_authors = [pa.user for pa in post.authors.all()]
         form = PostForm(instance=post, initial={'authors': current_authors})
 
@@ -200,7 +192,6 @@ def edit_post(request, pk):
 def delete_post(request, pk):
     post = get_object_or_404(Post, pk=pk)
 
-    # Проверяем, является ли пользователь автором
     if not post.authors.filter(user=request.user).exists():
         messages.error(request, 'У вас нет прав для удаления этой публикации.')
         return redirect('all_posts')
