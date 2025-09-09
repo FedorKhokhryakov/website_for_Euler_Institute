@@ -1,11 +1,17 @@
 from django.db.models import Q, Prefetch
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
+from django.http import HttpResponse
+from django.utils.text import slugify
+from django.contrib.admin.views.decorators import staff_member_required
 
 from .forms import CustomUserCreationForm, UserProfileForm, PostForm, SearchForm
 from .models import User, Post, PostAuthor
+from datetime import datetime
+from collections import defaultdict
+import pypandoc
 
 
 def register(request):
@@ -208,3 +214,76 @@ def delete_post(request, pk):
         return redirect('profile')
 
     return render(request, 'main/delete_post.html', {'post': post})
+
+def is_admin(user):
+    return user.is_staff
+
+@user_passes_test(is_admin)
+def report_page(request):
+    users = User.objects.all()
+    return render(request, "main/report_page.html", {"users": users})
+
+@staff_member_required
+def admin_reports(request):
+    users = User.objects.all().order_by('username')
+
+    if request.method == "POST":
+        user_id = request.POST.get('user')
+        year = request.POST.get('year')
+        if not user_id or not year:
+            messages.error(request, "Выберите пользователя и год.")
+            return redirect("admin_reports")
+        return redirect(f"/reports/generate/?user={user_id}&year={year}")
+
+    return render(request, "main/report_page.html", {  # путь с app_name
+        "users": users,
+        "years": range(2000, datetime.now().year + 1)
+    })
+
+
+@staff_member_required
+def generate_user_report(request):
+    user_id = request.POST.get("user")
+    year = request.POST.get("year")
+
+    if not user_id or not year:
+        messages.error(request, "Не выбраны пользователь или год.")
+        return redirect("report_page")  # редирект на страницу выбора пользователя
+
+    try:
+        year = int(year)
+    except ValueError:
+        messages.error(request, "Неверный формат года.")
+        return redirect("report_page")
+
+    user = get_object_or_404(User, pk=user_id)
+
+    posts = Post.objects.filter(authors__user=user, year=year).order_by("type", "year")
+
+    grouped = defaultdict(list)
+    for post in posts:
+        grouped[post.get_type_display()].append(post)
+
+    report_text = f"# Отчёт по публикациям пользователя {user.username} за {year} год\n\n"
+    for type_name, items in grouped.items():
+        report_text += f"## {type_name}\n"
+        for p in items:
+            report_text += f"- {p.year}: {p.article_identification_number or 'Без номера'}"
+            if p.web_page:
+                report_text += f" ([ссылка]({p.web_page}))"
+            report_text += "\n"
+        report_text += "\n"
+
+    rtf_path = f"/tmp/user_report_{slugify(user.username)}_{year}_{datetime.now().strftime('%Y%m%d')}.rtf"
+
+    try:
+        pypandoc.get_pandoc_version()
+    except OSError:
+        pypandoc.download_pandoc()
+
+    pypandoc.convert_text(report_text, "rtf", format="md", outputfile=rtf_path, extra_args=["--standalone"])
+
+    with open(rtf_path, "rb") as f:
+        response = HttpResponse(f.read(), content_type="application/rtf")
+        response["Content-Disposition"] = f'attachment; filename="report_{user.username}_{year}.rtf"'
+        return response

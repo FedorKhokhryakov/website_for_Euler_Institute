@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Генерация отчёта{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Сгенерировать отчёт</h2>
+    <form method="post" action="{% url 'generate_user_report' %}">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="user" class="form-label">Пользователь</label>
+            <select class="form-select" id="user" name="user" required>
+                {% for u in users %}
+                <option value="{{ u.id }}">{{ u.userprofile.full_name|default:u.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="year" class="form-label">Год</label>
+            <input type="number" id="year" name="year" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Сгенерировать отчёт</button>
+    </form>
+</div>
+{% endblock %}

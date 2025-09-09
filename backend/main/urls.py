@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.forms import AuthenticationForm
@@ -20,4 +20,8 @@ urlpatterns = [
     path('users/', views.all_users, name='all_users'),
     path('users/<int:user_id>/publications/', views.user_posts, name='user_posts'),
     path('search/', views.search, name='search'),
+
+    path("reports/", views.report_page, name="report_page"),
+    path("reports/admin/", views.report_page, name="admin_reports"),
+    path("reports/generate/", views.generate_user_report, name="generate_user_report"),
 ]
