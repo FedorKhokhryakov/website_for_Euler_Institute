@@ -11,6 +11,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!token.value)
 
   const login = async (credentials) => {
+    isLoading.value = true
     try {
       const response = await axios.post('/api/auth/login/', credentials)
       
@@ -20,6 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
       token.value = authToken
       
       localStorage.setItem('auth_token', authToken)
+      localStorage.setItem('user_data', JSON.stringify(userData))
       
       axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`
       
@@ -38,15 +40,19 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const initialize = async () => {
-    if (token.value) {
+    const savedToken = localStorage.getItem('auth_token')
+    const savedUser = localStorage.getItem('user_data')
+    
+    if (savedToken) {
       try {
-        const response = await axios.get('/api/auth/user/', {
-          headers: {
-            'Authorization': `Bearer ${token.value}`
-          }
-        })
+        axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`
+        
+        const response = await axios.get('/api/auth/user/')
         user.value = response.data
+        
+        localStorage.setItem('user_data', JSON.stringify(response.data))
       } catch (error) {
+        console.error('Ошибка инициализации:', error)
         logout()
       }
     }
@@ -57,6 +63,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     token.value = null
     localStorage.removeItem('auth_token')
+    localStorage.removeItem('user_data')
     delete axios.defaults.headers.common['Authorization']
   }
 

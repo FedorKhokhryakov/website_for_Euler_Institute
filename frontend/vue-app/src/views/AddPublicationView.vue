@@ -147,6 +147,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { publicationsAPI} from '../services/api.js'
 
 const isSubmitting = ref(false)
 
@@ -176,16 +177,31 @@ const submitForm = async () => {
   isSubmitting.value = true;
   
   try {
-    const response = await axios.post('/api/publications', publication)
-    const result = response.data
-    
-   if (response.status === 200 || response.status === 201) {
-      const result = response.data;
+    const publicationData = {
+      type: publication.type,
+      title: publication.title,
+      authors: publication.authors.split(',').map(author => author.trim()),
+      authorCount: parseInt(publication.authorCount),
+      receivedDate: publication.receivedDate,
+      decisionDate: publication.decisionDate,
+      publishedDate: publication.publishedDate,
+      journal: publication.journal,
+      volume: publication.volume,
+      issue: publication.issue,
+      articleId: publication.articleId,
+      pages: publication.pages,
+      year: parseInt(publication.year),
+      language: publication.language,
+      webpage: publication.webpage,
+      facultyCoauthors: publication.facultyCoauthors,
+      comment: publication.comment
+    }
 
+    const response = await publicationsAPI.create(publicationData)
+    
+    if (response.status === 201) {
       alert('Публикация успешно добавлена!');
       resetForm();
-    } else {
-      alert('Ошибка при добавлении публикации: ' + response.statusText);
     }
   } catch (error) {
     console.error('Ошибка:', error);

@@ -63,7 +63,7 @@ const logout = () => {
 .app-layout {
   display: flex;
   min-height: 100vh;
-  overflow: visible
+  overflow: visible;
 }
 
 .sidebar {

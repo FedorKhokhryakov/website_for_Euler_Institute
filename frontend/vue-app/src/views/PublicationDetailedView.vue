@@ -78,7 +78,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import axios from 'axios'
+import { publicationsAPI } from '../services/api'
 
 const route = useRoute()
 const publication = ref(null)
@@ -93,14 +93,16 @@ const hasDates = computed(() => {
 })
 /*
 const loadPublication = async (id) => {
-  loading.value = true
+  loading.value = true;
   try {
-    const response = await axios.get(`/api/publications/${id}`)
-    publication.value = response.data
+    const response = await publicationsAPI.getById(id)
+    publication.value = response.data;
   } catch (error) {
-    console.error('Ошибка:', error)
+    console.error('Ошибка:', error);
+    // Fallback на моковые данные
+    publication.value = getMockPublication(id);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 */
