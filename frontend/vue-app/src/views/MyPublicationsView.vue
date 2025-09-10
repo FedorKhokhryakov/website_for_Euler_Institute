@@ -91,6 +91,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 const router = useRouter()
 
@@ -165,13 +166,8 @@ watch(filterType, () => {
 const loadPublications = async () => {
   loading.value = true;
   try {
-    const response = await fetch('http://your-backend-domain.com/api/publications');
-    
-    if (response.ok) {
-      publications.value = await response.json();
-    } else {
-      console.error('Ошибка загрузки публикаций:', response.statusText);
-    }
+    const response = await axios.get('/api/publications')
+    publications.value = response.data;
   } catch (error) {
     console.error('Ошибка:', error);
   } finally {

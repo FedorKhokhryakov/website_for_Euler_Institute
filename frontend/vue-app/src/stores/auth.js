@@ -6,27 +6,21 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
   const token = ref(localStorage.getItem('auth_token'))
   const isInitialized = ref(false)
+  const isLoading = ref(false)
 
   const isAuthenticated = computed(() => !!token.value)
 
-  // TODO: добавить обработку входа, связать ее с бэком
   const login = async (credentials) => {
     try {
-      // Отправляем POST запрос на эндпоинт бэкенда
       const response = await axios.post('/api/auth/login/', credentials)
       
-      // Предполагаем, что бэкенд возвращает структуру:
-      // { token: 'ваш_jwt_токен', user: { id: 1, username: 'user', ... } }
       const { token: authToken, user: userData } = response.data
       
-      // Сохраняем данные
       user.value = userData
       token.value = authToken
       
-      // Сохраняем токен в localStorage
       localStorage.setItem('auth_token', authToken)
       
-      // Устанавливаем токен по умолчанию для всех последующих запросов
       axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`
       
       return response.data
@@ -38,22 +32,20 @@ export const useAuthStore = defineStore('auth', () => {
       } else {
         throw new Error('Ошибка сервера. Попробуйте позже.')
       }
+    } finally {
+      isLoading.value = false
     }
   }
 
   const initialize = async () => {
     if (token.value) {
       try {
-        const response = await fetch('/api/auth/user/', {
+        const response = await axios.get('/api/auth/user/', {
           headers: {
             'Authorization': `Bearer ${token.value}`
           }
         })
-        if (response.ok) {
-          user.value = await response.json()
-        } else {
-          logout()
-        }
+        user.value = response.data
       } catch (error) {
         logout()
       }
@@ -71,6 +63,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user,
     token,
+    isLoading,
     isAuthenticated,
     isInitialized,
     login,
@@ -89,17 +82,13 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
   const token = ref(null)
   const isLoading = ref(false)
-
   const isAuthenticated = ref(false)
 
-  // Заглушка для входа - всегда успешный вход
   const login = async (credentials) => {
     isLoading.value = true
     
-    // Имитация задержки сети
     await new Promise(resolve => setTimeout(resolve, 1000))
     
-    // Создаем mock пользователя
     user.value = {
       id: 1,
       username: credentials.username,
@@ -112,18 +101,16 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = 'mock-token-' + Date.now()
     isAuthenticated.value = true
     
-    // Сохраняем в localStorage для сохранения состояния при перезагрузке
     localStorage.setItem('auth_token', token.value)
     localStorage.setItem('user_data', JSON.stringify(user.value))
     
-    // Устанавливаем заголовок для axios (если потом будете использовать)
+    // Устанавливаем заголовок для axios
     axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
     
     isLoading.value = false
     return { success: true }
   }
 
-  // Выход из системы
   const logout = () => {
     user.value = null
     token.value = null
@@ -133,7 +120,6 @@ export const useAuthStore = defineStore('auth', () => {
     delete axios.defaults.headers.common['Authorization']
   }
 
-  // Инициализация при загрузке приложения
   const initialize = () => {
     const savedToken = localStorage.getItem('auth_token')
     const savedUser = localStorage.getItem('user_data')

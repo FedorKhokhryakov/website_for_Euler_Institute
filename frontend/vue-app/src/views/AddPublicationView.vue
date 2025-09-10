@@ -176,16 +176,12 @@ const submitForm = async () => {
   isSubmitting.value = true;
   
   try {
-    const response = await fetch('http://your-backend-domain.com/api/publications', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(publication)
-    });
+    const response = await axios.post('/api/publications', publication)
+    const result = response.data
     
-    if (response.ok) {
-      const result = await response.json();
+   if (response.status === 200 || response.status === 201) {
+      const result = response.data;
+
       alert('Публикация успешно добавлена!');
       resetForm();
     } else {

@@ -78,6 +78,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import axios from 'axios'
 
 const route = useRoute()
 const publication = ref(null)
@@ -94,12 +95,8 @@ const hasDates = computed(() => {
 const loadPublication = async (id) => {
   loading.value = true
   try {
-    const response = await fetch(`http://your-backend-domain.com/api/publications/${id}`)
-    if (response.ok) {
-      publication.value = await response.json()
-    } else {
-      console.error('Ошибка загрузки публикации:', response.statusText)
-    }
+    const response = await axios.get(`/api/publications/${id}`)
+    publication.value = response.data
   } catch (error) {
     console.error('Ошибка:', error)
   } finally {
