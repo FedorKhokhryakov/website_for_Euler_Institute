@@ -1,3 +1,6 @@
+import os
+
+from django.http import HttpResponse, FileResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -6,8 +9,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializer import UserAuthSerializer, LoginSerializer, UserSerializer, OwnerCheckSerializer, \
-    PublicationCreateSerializer, PublicationSerializer, RegisterSerializer
-from .models import User, Post
+    PublicationCreateSerializer, PublicationSerializer, RegisterSerializer, UserListSerializer, ReportSerializer, \
+    ReportCreateSerializer
+from .models import User, Post, Report
+from .views import generate_user_report
 
 
 @api_view(['POST'])
@@ -86,7 +91,7 @@ def check_publication_owner(request, id):
     publication = get_object_or_404(Post, id=id)
 
     is_owner = publication.authors.filter(id=request.user.id).exists()
-    is_admin = request.user.is_staff or request.user.is_superuser
+    is_admin = request.user.is_admin or request.user.is_superuser
 
     serializer = OwnerCheckSerializer({
         'isOwner': is_owner,
@@ -160,3 +165,194 @@ def register_user(request):
                 "error": "Invalid data",
                 "details": errors
             }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_list(request):
+    users = User.objects.all()
+    serializer = UserListSerializer(users, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def users_request(request):
+    users = User.objects.all()
+
+    data = []
+    for user in users:
+        full_name = " ".join(
+            filter(None, [user.last_name, user.first_name, getattr(user, "middle_name", "")])
+        )
+        data.append({
+            "id": user.id,
+            "full_name": full_name.strip(),
+            "email": user.email,
+            "position": getattr(user, "position", ""),
+        })
+
+    return Response(data, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_report(request):
+    """
+    Генерация отчета
+    POST /api/reports/
+    """
+    if not request.user.is_staff:
+        return Response({
+            "error": "Доступ запрещен. Требуются права администратора."
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    serializer = ReportCreateSerializer(data=request.data, context={'request': request})
+
+    if serializer.is_valid():
+        try:
+            report = serializer.save()
+
+            response_serializer = ReportSerializer(report)
+
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({
+                "error": "Ошибка при создании отчета",
+                "details": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    else:
+        return Response({
+            "error": "Неверные данные запроса",
+            "details": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def download_report(request, id):
+    """
+    Скачивание отчета
+    GET /api/reports/{id}/download/
+    """
+    report = get_object_or_404(Report, id=id)
+
+    if not (request.user.is_staff or report.created_by == request.user or report.user == request.user):
+        return Response({
+            "error": "Доступ запрещен"
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    if report.status != 'completed':
+        return Response({
+            "error": "Отчет еще не готов",
+            "status": report.status
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not report.file_path or not os.path.exists(report.file_path):
+        return Response({
+            "error": "Файл отчета не найден"
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        content_types = {
+            'rtf': 'application/rtf',
+            'pdf': 'application/pdf',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        }
+
+        content_type = content_types.get(report.format, 'application/octet-stream')
+        response = FileResponse(open(report.file_path, 'rb'), content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{os.path.basename(report.file_path)}"'
+
+        return response
+
+    except Exception as e:
+        return Response({
+            "error": "Ошибка при загрузке файла",
+            "details": str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_reports(request):
+    """
+    Получение списка отчетов пользователя
+    GET /api/reports/
+    """
+    if request.user.is_staff:
+        reports = Report.objects.all()
+    else:
+        reports = Report.objects.filter(user=request.user)
+
+    serializer = ReportSerializer(reports, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def download_report_api(request):
+    """
+    API endpoint для скачивания отчета
+    POST /api/reports/download/
+    """
+    if not request.user.is_staff:
+        return Response({
+            "error": "Доступ запрещен. Требуются права администратора."
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    user_id = request.data.get('user_id')
+    year = request.data.get('year')
+    format_type = request.data.get('format', 'rtf')
+
+    if not user_id or not year:
+        return Response({
+            "error": "Обязательные поля: user_id и year"
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        year = int(year)
+    except (ValueError, TypeError):
+        return Response({
+            "error": "Неверный формат года"
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({
+            "error": "Пользователь не найден"
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    class MockRequest:
+        def __init__(self, user, user_id, year):
+            self.user = user
+            self.POST = {'user': str(user_id), 'year': str(year)}
+            self.method = 'POST'
+
+    mock_request = MockRequest(request.user, user_id, year)
+
+    try:
+        response = generate_user_report(mock_request)
+
+        if hasattr(response, 'content'):
+            filename = f"report_{user.username}_{year}.rtf"
+
+            return HttpResponse(
+                response.content,
+                content_type=response['Content-Type'],
+                headers={
+                    'Content-Disposition': f'attachment; filename="{filename}"'
+                }
+            )
+        else:
+            return Response({
+                "error": "Ошибка при генерации отчета"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    except Exception as e:
+        return Response({
+            "error": "Ошибка при генерации отчета",
+            "details": str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -107,3 +107,49 @@ class PostAuthor(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.post}"
+
+class Report(models.Model):
+    REPORT_TYPES = [
+        ('annual_user', 'Годовой отчет пользователя'),
+        ('annual_lab', 'Годовой отчет лаборатории'),
+        ('custom', 'Произвольный отчет'),
+    ]
+
+    REPORT_FORMATS = [
+        ('rtf', 'RTF'),
+        ('pdf', 'PDF'),
+        ('docx', 'DOCX'),
+    ]
+
+    REPORT_STATUSES = [
+        ('pending', 'В обработке'),
+        ('processing', 'Формируется'),
+        ('completed', 'Завершен'),
+        ('failed', 'Ошибка'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Пользователь")
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_reports',
+                                   verbose_name="Создатель отчета")
+    year = models.IntegerField(verbose_name="Год отчета")
+    report_type = models.CharField(max_length=20, choices=REPORT_TYPES, verbose_name="Тип отчета")
+    format = models.CharField(max_length=10, choices=REPORT_FORMATS, default='rtf', verbose_name="Формат")
+    status = models.CharField(max_length=20, choices=REPORT_STATUSES, default='pending', verbose_name="Статус")
+    name = models.CharField(max_length=255, verbose_name="Название отчета")
+    file_path = models.CharField(max_length=500, blank=True, null=True, verbose_name="Путь к файлу")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлен")
+
+    class Meta:
+        verbose_name = "Отчет"
+        verbose_name_plural = "Отчеты"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.get_status_display()})"
+
+    def get_download_url(self):
+        return f"/api/reports/{self.id}/download/"
+
+    def generate_filename(self):
+        return f"report_{self.user.username}_{self.year}_{self.created_at.strftime('%Y%m%d_%H%M%S')}.{self.format}"
