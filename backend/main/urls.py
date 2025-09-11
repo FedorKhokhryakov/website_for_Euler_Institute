@@ -11,12 +11,14 @@ urlpatterns = [
 
     path('api/auth/register/', api_views.register_user, name='register'),
 
-    path('api/publications/', api_views.get_user_publications, name='user-publications'),
+    path('api/my_publications/', api_views.get_user_publications, name='user-publications'),
     path('api/publications/<int:id>/', api_views.get_publication_detail, name='publication-detail'),
     path('api/publications/<int:id>/check-owner/', api_views.check_publication_owner, name='check-owner'),
-    path('api/publications1/', api_views.create_publication, name='create-publication'),
+    path('api/publications/', api_views.create_publication, name='create-publication'),
 
     path('api/users/<int:id>/', api_views.get_user_profile, name='user-profile'),
+    path('api/users/', api_views.user_list, name='user-list'),
+    path("api/users_request/", api_views.users_request, name="users-request"),
 
     path('', views.home, name='home'),
     path('profile/', views.profile, name='profile'),

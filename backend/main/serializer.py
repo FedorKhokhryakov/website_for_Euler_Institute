@@ -51,7 +51,7 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def get_role(self, obj):
-        return 'admin' if obj.is_staff or obj.is_superuser else 'user'
+        return 'admin' if obj.is_admin else 'user'
 
 
 class PublicationSerializer(serializers.ModelSerializer):
@@ -232,3 +232,18 @@ class RegisterSerializer(serializers.ModelSerializer):
             middle_name=validated_data.get('middle_name', '')
         )
         return user
+
+
+class UserListSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+    department = serializers.CharField(source='laboratory', allow_null=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 'middle_name',
+            'department', 'role'
+        ]
+
+    def get_role(self, obj):
+        return 'admin' if obj.is_admin else 'user'

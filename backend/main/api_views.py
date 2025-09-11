@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializer import UserAuthSerializer, LoginSerializer, UserSerializer, OwnerCheckSerializer, \
-    PublicationCreateSerializer, PublicationSerializer, RegisterSerializer
+    PublicationCreateSerializer, PublicationSerializer, RegisterSerializer, UserListSerializer
 from .models import User, Post
 
 
@@ -86,7 +86,7 @@ def check_publication_owner(request, id):
     publication = get_object_or_404(Post, id=id)
 
     is_owner = publication.authors.filter(id=request.user.id).exists()
-    is_admin = request.user.is_staff or request.user.is_superuser
+    is_admin = request.user.is_admin or request.user.is_superuser
 
     serializer = OwnerCheckSerializer({
         'isOwner': is_owner,
@@ -160,3 +160,31 @@ def register_user(request):
                 "error": "Invalid data",
                 "details": errors
             }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_list(request):
+    users = User.objects.all()
+    serializer = UserListSerializer(users, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def users_request(request):
+    users = User.objects.all()
+
+    data = []
+    for user in users:
+        full_name = " ".join(
+            filter(None, [user.last_name, user.first_name, getattr(user, "middle_name", "")])
+        )
+        data.append({
+            "id": user.id,
+            "full_name": full_name.strip(),
+            "email": user.email,
+            "position": getattr(user, "position", ""),
+        })
+
+    return Response(data, status=status.HTTP_200_OK)
