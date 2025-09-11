@@ -104,9 +104,8 @@ def all_posts(request):
 @login_required
 def post_detail(request, pk):
     post = get_object_or_404(Post.objects.prefetch_related('authors__user'), pk=pk)
-    return render(request, 'main/post_detail.html', {
-        'post': post
-    })
+    authors = post.authors.all().order_by("order")
+    return render(request, 'main/post_detail.html', {'post': post, 'authors': authors,})
 
 
 @login_required
