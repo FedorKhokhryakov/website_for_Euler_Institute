@@ -166,6 +166,7 @@ const loadPublications = async () => {
   loading.value = true;
   try {
     const response = await publicationsAPI.getAll()
+    console.log("Публикации: ", response.data)
     publications.value = response.data;
   } catch (error) {
     console.error('Ошибка:', error);

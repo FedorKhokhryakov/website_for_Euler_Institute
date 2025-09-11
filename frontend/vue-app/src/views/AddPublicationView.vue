@@ -135,7 +135,13 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { publicationsAPI} from '../services/api.js'
+import { publicationsAPI } from '../services/api.js'
+
+const isValidDate = (dateString) => {
+  if (!dateString) return false
+  const regex = /^\d{4}-\d{2}-\d{2}$/
+  return regex.test(dateString)
+}
 
 const isSubmitting = ref(false)
 
@@ -170,30 +176,35 @@ const submitForm = async () => {
       title: publication.title,
       authors: publication.authors.split(',').map(author => author.trim()),
       authorCount: parseInt(publication.authorCount),
-      receivedDate: publication.receivedDate,
-      decisionDate: publication.decisionDate,
-      publishedDate: publication.publishedDate,
-      journal: publication.journal,
-      volume: publication.volume,
-      issue: publication.issue,
-      articleId: publication.articleId,
-      pages: publication.pages,
+      receivedDate: publication.receivedDate || null,
+      decisionDate: publication.decisionDate || null,
+      publishedDate: publication.publishedDate || null,
+      journal: publication.journal || '',
+      volume: publication.volume || '',
+      issue: publication.issue || '',
+      articleId: publication.articleId || '',
+      pages: publication.pages || '',
       year: parseInt(publication.year),
       language: publication.language,
-      webpage: publication.webpage,
+      webpage: publication.webpage || '',
       facultyCoauthors: publication.facultyCoauthors,
-      comment: publication.comment
+      comment: publication.comment || ''
     }
 
-    const response = await publicationsAPI.create(publicationData)
+    const cleanData = Object.fromEntries(
+      Object.entries(publicationData).filter(([_, v]) => v !== '' && v !== null)
+    )
+
+    console.log('Отправляемые данные:', cleanData)
+    const response = await publicationsAPI.create(cleanData)
     
     if (response.status === 201) {
       alert('Публикация успешно добавлена!');
       resetForm();
     }
   } catch (error) {
-    console.error('Ошибка:', error);
-    alert('Произошла ошибка при отправке данных.');
+    console.error('Ошибка:', error.response?.data || error);
+    alert('Произошла ошибка при отправке данных: ' + (error.response?.data?.message || error.message));
   } finally {
     isSubmitting.value = false;
   }

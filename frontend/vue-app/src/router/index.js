@@ -12,10 +12,10 @@ import MyPublicationsView from '../views/MyPublicationsView.vue'
 import PublicationDetailedView from '../views/PublicationDetailedView.vue'
 import UserProfileView from '../views/UserProfileView.vue'
 
-/*import AdminDashboardView from '../views/admin/AdminDashboardView.vue'
+import AdminDashboardView from '../views/admin/AdminDashboardView.vue'
 import AdminUsersView from '../views/admin/AdminUsersView.vue'
 import AdminPublicationsView from '../views/admin/AdminPublicationsView.vue'
-import AdminReportsView from '../views/admin/AdminReportsView.vue'*/
+import AdminReportsView from '../views/admin/AdminReportsView.vue'
 import NotFoundView from "../views/NotFoundView.vue"
 
 
@@ -74,31 +74,33 @@ const routes = [
       }
     ]
   },
-  // Admin routes
-  /*{ 
-    path: "/admin", 
-    name: "AdminDashboard",
-    component: AdminDashboardView, 
-    meta: { requiresAuth: true, requiresAdmin: true } 
+  {
+    path: '/admin',
+    component: AppLayout,
+    meta: { requiresAuth: true, requiresAdmin: true },
+    children: [
+      { 
+        path: "", 
+        name: "AdminDashboard",
+        component: AdminDashboardView
+      },
+      { 
+        path: "users", 
+        name: "AdminUsers",
+        component: AdminUsersView
+      },
+      { 
+        path: "publications", 
+        name: "AdminPublications",
+        component: AdminPublicationsView
+      },
+      { 
+        path: "reports", 
+        name: "AdminReports",
+        component: AdminReportsView
+      }
+    ]
   },
-  { 
-    path: "/admin/users", 
-    name: "AdminUsers",
-    component: AdminUsersView, 
-    meta: { requiresAuth: true, requiresAdmin: true } 
-  },
-  { 
-    path: "/admin/publications", 
-    name: "AdminPublications",
-    component: AdminPublicationsView, 
-    meta: { requiresAuth: true, requiresAdmin: true } 
-  },
-  { 
-    path: "/admin/reports", 
-    name: "AdminReports",
-    component: AdminReportsView, 
-    meta: { requiresAuth: true, requiresAdmin: true } 
-  },*/
   { 
     path: "/:pathMatch(.*)*", 
     name: "NotFound",
@@ -113,31 +115,25 @@ const router = createRouter({
 })
 
 
-// Навигационный гард
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   
-  // Если store еще не инициализирован, инициализируем его
   if (!authStore.isInitialized) {
     await authStore.initialize()
   }
   
   const isAuthenticated = authStore.isAuthenticated
-  const isAdmin = authStore.user?.role === 'admin' // Предполагаем, что в user есть поле role
+  const isAdmin = authStore.user?.is_admin
   
-  // Если маршрут требует авторизации, а пользователь не авторизован
   if (to.meta.requiresAuth && !isAuthenticated) {
     next("/login")
   } 
-  // Если пользователь авторизован и пытается попасть на login/register
   else if ((to.path === "/login" || to.path === "/register") && isAuthenticated) {
     next("/dashboard")
   }
-  // Если маршрут требует прав администратора, а у пользователя их нет
   else if (to.meta.requiresAdmin && !isAdmin) {
-    next("/dashboard") // Или на страницу 403 Forbidden
+    next("/dashboard")
   }
-  // Во всех остальных случаях разрешаем переход
   else {
     next()
   }
