@@ -1,7 +1,13 @@
+import os
+from collections import defaultdict
+
+import pypandoc
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from .models import User, Post, PostAuthor
+
+from euler import settings
+from .models import User, Post, PostAuthor, Report
 
 
 class UserAuthSerializer(serializers.ModelSerializer):
@@ -247,3 +253,100 @@ class UserListSerializer(serializers.ModelSerializer):
 
     def get_role(self, obj):
         return 'admin' if obj.is_admin else 'user'
+
+class ReportSerializer(serializers.ModelSerializer):
+    download_url = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField(format='%Y-%m-%dT%H:%M:%SZ')
+
+    class Meta:
+        model = Report
+        fields = ['id', 'name', 'created_at', 'status', 'download_url']
+
+    def get_download_url(self, obj):
+        return obj.get_download_url()
+
+
+class ReportCreateSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(write_only=True)
+    year = serializers.IntegerField()
+    format = serializers.ChoiceField(choices=Report.REPORT_FORMATS)
+    type = serializers.ChoiceField(choices=Report.REPORT_TYPES, source='report_type')
+
+    class Meta:
+        model = Report
+        fields = ['user_id', 'year', 'format', 'type']
+
+    def validate_user_id(self, value):
+        try:
+            user = User.objects.get(id=value)
+            return user
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Пользователь не найден")
+
+    def create(self, validated_data):
+        user = validated_data.pop('user_id')
+        request = self.context.get('request')
+
+        report = Report.objects.create(
+            user=user,
+            created_by=request.user,
+            name=f"Отчет по {user.last_name} {user.first_name[0]}.{user.middle_name[0] if user.middle_name else ''} за {validated_data['year']} г.",
+            **validated_data
+        )
+
+        self.generate_report_async(report)
+
+        return report
+
+    def generate_report_async(self, report):
+
+        try:
+            report.status = 'processing'
+            report.save()
+
+            self.generate_report_content(report)
+
+            report.status = 'completed'
+            report.save()
+
+        except Exception as e:
+            report.status = 'failed'
+            report.save()
+            print(f"Ошибка генерации отчета {report.id}: {str(e)}")
+
+    def generate_report_content(self, report):
+        posts = Post.objects.filter(authors__user=report.user, year=report.year).order_by("type", "year")
+
+        grouped = defaultdict(list)
+        for post in posts:
+            grouped[post.get_type_display()].append(post)
+
+        report_text = f"# Отчёт по публикациям пользователя {report.user.username} за {report.year} год\n\n"
+        for type_name, items in grouped.items():
+            report_text += f"## {type_name}\n"
+            for p in items:
+                report_text += f"- {p.year}: {p.article_identification_number or 'Без номера'}"
+                if p.web_page:
+                    report_text += f" ([ссылка]({p.web_page}))"
+                report_text += "\n"
+            report_text += "\n"
+
+        reports_dir = os.path.join(settings.MEDIA_ROOT, 'reports')
+        os.makedirs(reports_dir, exist_ok=True)
+
+        filename = report.generate_filename()
+        report.file_path = os.path.join(reports_dir, filename)
+
+        try:
+            if report.format == 'rtf':
+                pypandoc.convert_text(report_text, "rtf", format="md", outputfile=report.file_path,
+                                      extra_args=["--standalone"])
+            elif report.format == 'pdf':
+                pypandoc.convert_text(report_text, "pdf", format="md", outputfile=report.file_path,
+                                      extra_args=["--standalone"])
+            elif report.format == 'docx':
+                pypandoc.convert_text(report_text, "docx", format="md", outputfile=report.file_path,
+                                      extra_args=["--standalone"])
+
+        except Exception as e:
+            raise Exception(f"Ошибка конвертации отчета: {str(e)}")
