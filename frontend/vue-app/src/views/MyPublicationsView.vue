@@ -91,7 +91,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import { publicationsAPI } from '../services/api'
 
 const router = useRouter()
 
@@ -162,11 +162,10 @@ watch(filterType, () => {
   currentPage.value = 1;
 })
 
-/*
 const loadPublications = async () => {
   loading.value = true;
   try {
-    const response = await axios.get('/api/publications')
+    const response = await publicationsAPI.getAll()
     publications.value = response.data;
   } catch (error) {
     console.error('Ошибка:', error);
@@ -174,9 +173,8 @@ const loadPublications = async () => {
     loading.value = false;
   }
 }
-*/
 
-const loadPublications = async () => {
+/*const loadPublications = async () => {
   loading.value = true;
   try {
     // Моковые данные для тестирования
@@ -251,7 +249,7 @@ const loadPublications = async () => {
   } finally {
     loading.value = false;
   }
-}
+}*/
 
 const viewPublication = (id) => {
   router.push(`/publication/${id}`);

@@ -39,6 +39,10 @@
         >
           {{ isLoading ? 'Вход...' : 'Войти' }}
         </button>
+
+        <div class="register-link">
+          Нет аккаунта? <router-link to="/register">Зарегистрироваться</router-link>
+        </div>
       </form>
     </div>
   </div>
@@ -157,5 +161,21 @@ const handleLogin = async () => {
 .login-button:disabled {
   background-color: #cccccc;
   cursor: not-allowed;
+}
+
+.register-link {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.register-link a {
+  color: #2e7d32;
+  text-decoration: none;
+}
+
+.register-link a:hover {
+  text-decoration: underline;
 }
 </style>

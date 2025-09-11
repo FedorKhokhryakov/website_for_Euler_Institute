@@ -4,7 +4,7 @@ import { useAuthStore } from "../stores/auth"
 import AppLayout from "../components/layout/AppLayout.vue"
 
 import LoginView from "../views/LoginView.vue"
-//import RegisterView from "../views/RegisterView.vue"
+import RegisterView from "../views/RegisterView.vue"
 import DashboardView from "../views/DashboardView.vue"
 import ScientificActivityView from '../views/ScientificActivityView.vue'
 import AddPublicationView from '../views/AddPublicationView.vue'
@@ -31,12 +31,12 @@ const routes = [
     component: LoginView, 
     meta: { requiresAuth: false } 
   },
-  /*{ 
+  { 
     path: "/register", 
     name: "Register",
     component: RegisterView, 
     meta: { requiresAuth: false } 
-  },*/
+  },
   {
     path: '',
     component: AppLayout,

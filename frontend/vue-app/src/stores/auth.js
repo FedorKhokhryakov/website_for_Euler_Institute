@@ -1,5 +1,6 @@
-/*import { defineStore } from 'pinia'
+import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { authAPI } from '../services/api.js'
 import axios from 'axios'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -13,7 +14,9 @@ export const useAuthStore = defineStore('auth', () => {
   const login = async (credentials) => {
     isLoading.value = true
     try {
-      const response = await axios.post('/api/auth/login/', credentials)
+      const response = await authAPI.login(credentials)
+
+      console.log('Login response:', response.data)
       
       const { token: authToken, user: userData } = response.data
       
@@ -39,6 +42,29 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  const register = async (userData) => {
+    isLoading.value = true
+    
+    try {
+      const response = await authAPI.register(userData)
+      
+      if (response.data) {
+        return { 
+          success: true, 
+          message: 'Регистрация успешна',
+          user: response.data
+        }
+      }
+      
+      return { success: true, message: 'Регистрация успешна' }
+      
+    } catch (error) {
+      throw error
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   const initialize = async () => {
     const savedToken = localStorage.getItem('auth_token')
     const savedUser = localStorage.getItem('user_data')
@@ -47,7 +73,7 @@ export const useAuthStore = defineStore('auth', () => {
       try {
         axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`
         
-        const response = await axios.get('/api/auth/user/')
+        const response = await authAPI.getUserProfile()
         user.value = response.data
         
         localStorage.setItem('user_data', JSON.stringify(response.data))
@@ -73,15 +99,16 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading,
     isAuthenticated,
     isInitialized,
+    register,
     login,
     logout,
     initialize
   }
-})*/
+})
 
 // файл с заглушкой для постоянного входа
 // stores/auth.js
-import { defineStore } from 'pinia'
+/*import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import axios from 'axios'
 
@@ -148,4 +175,4 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     initialize
   }
-})
+})*/

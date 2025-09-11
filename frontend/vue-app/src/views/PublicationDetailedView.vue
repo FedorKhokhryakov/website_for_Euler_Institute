@@ -91,7 +91,6 @@ const hasDates = computed(() => {
     publication.value.publishedDate
   )
 })
-/*
 const loadPublication = async (id) => {
   loading.value = true;
   try {
@@ -105,9 +104,8 @@ const loadPublication = async (id) => {
     loading.value = false;
   }
 }
-*/
 
-const loadPublication = async (id) => {
+/*const loadPublication = async (id) => {
   loading.value = true;
   try {
     // Заглушка для тестирования верстки
@@ -139,7 +137,7 @@ const loadPublication = async (id) => {
   } finally {
     loading.value = false;
   }
-}
+}*/
 
 const getTypeLabel = (type) => {
   const typeLabels = {

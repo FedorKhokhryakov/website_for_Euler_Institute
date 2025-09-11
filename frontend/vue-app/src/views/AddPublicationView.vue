@@ -1,7 +1,6 @@
 <template>
   <div class="add-publication">
     <form @submit.prevent="submitForm" class="publication-form compact-form">
-      <!-- Тип публикации -->
       <div class="form-row">
         <label for="type">* Тип:</label>
         <select id="type" v-model="publication.type" required>
@@ -21,25 +20,21 @@
         </select>
       </div>
 
-      <!-- Название статьи -->
       <div class="form-row">
         <label for="title">* Название:</label>
         <input type="text" id="title" v-model="publication.title" required>
       </div>
 
-      <!-- Автор(ы) -->
       <div class="form-row">
         <label for="authors">* Автор(ы):</label>
         <input type="text" id="authors" v-model="publication.authors" placeholder="Авторы через запятую" required>
       </div>
 
-      <!-- Количество авторов -->
       <div class="form-row">
         <label for="authorCount">* Кол-во авторов:</label>
         <input type="number" id="authorCount" v-model="publication.authorCount" min="1" required class="small-input">
       </div>
 
-      <!-- Дополнительные даты -->
       <div class="form-row">
         <label>Дополнительные даты:</label>
         <div class="dates-container">
@@ -58,7 +53,6 @@
         </div>
       </div>
 
-      <!-- Издание, том, номер -->
       <div class="form-row triple-column">
         <label>Издание:</label>
         <div class="multi-input-container">
@@ -74,7 +68,6 @@
         </div>
       </div>
 
-      <!-- Идентификационный номер статьи -->
       <div class="form-row">
         <label for="articleId">ID статьи:</label>
         <input type="text" id="articleId" v-model="publication.articleId" placeholder="DOI или другой идентификатор">
@@ -90,7 +83,6 @@
         <input type="text" v-model="publication.year" placeholder="2005">
       </div>
 
-      <!-- Язык издания -->
       <div class="form-row">
         <label for="language">* Язык:</label>
         <select id="language" v-model="publication.language" required>
@@ -103,25 +95,21 @@
         </select>
       </div>
 
-      <!-- Веб-страница -->
       <div class="form-row">
         <label for="webpage">Веб-страница:</label>
         <input type="url" id="webpage" v-model="publication.webpage" placeholder="https://example.com">
       </div>
 
-      <!-- Соавторы среди коллектива факультета -->
       <div class="form-row checkbox-row">
         <label for="facultyCoauthors">Соавторы с факультета:</label>
         <input type="checkbox" id="facultyCoauthors" v-model="publication.facultyCoauthors">
       </div>
 
-      <!-- Комментарий -->
       <div class="form-row">
         <label for="comment">Комментарий:</label>
         <textarea id="comment" v-model="publication.comment" rows="3" placeholder="Дополнительная информация"></textarea>
       </div>
 
-      <!-- Кнопки отправки и сброса -->
       <div class="form-actions">
         <button 
           type="submit" 
@@ -314,7 +302,6 @@ const resetForm = () => {
 input, select, textarea {
   padding: 8px 12px;
   border: 1px solid #ddd;
-  border-radius: 4px;
   font-size: 14px;
   width: 100%;
   box-sizing: border-box;
@@ -340,7 +327,6 @@ input:focus, select:focus, textarea:focus {
 button {
   padding: 10px 20px;
   border: none;
-  border-radius: 4px;
   cursor: pointer;
   font-weight: bold;
   transition: all 0.3s ease;
