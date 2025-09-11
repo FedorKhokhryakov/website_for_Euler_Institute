@@ -18,7 +18,7 @@
         </router-link>
         
         <router-link 
-          v-if="user?.role === 'admin'" 
+          v-if="user?.is_admin" 
           to="/admin" 
           class="nav-link admin-link"
         >
@@ -110,7 +110,6 @@ const logout = () => {
 .nav-link.router-link-active {
   background-color: #2e7d32;
   color: white;
-  border-color: #2e7d32;
 }
 
 .admin-link {

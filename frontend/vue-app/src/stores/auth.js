@@ -66,23 +66,36 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const initialize = async () => {
+    console.log('Начало инициализации auth store')
     const savedToken = localStorage.getItem('auth_token')
-    const savedUser = localStorage.getItem('user_data')
+    
+    console.log('Сохраненный токен:', savedToken)
     
     if (savedToken) {
       try {
+
         axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`
-        
+
         const response = await authAPI.getUserProfile()
         user.value = response.data
+        token.value = savedToken
         
+        console.log('Успешная инициализация, пользователь:', response.data)
         localStorage.setItem('user_data', JSON.stringify(response.data))
       } catch (error) {
         console.error('Ошибка инициализации:', error)
-        logout()
+        console.error('Статус ошибки:', error.response?.status)
+        console.error('Данные ошибки:', error.response?.data)
+        
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          logout()
+        }
       }
+    } else {
+      console.log('Токен не найден в localStorage')
     }
     isInitialized.value = true
+    console.log('Инициализация завершена')
   }
 
   const logout = () => {
@@ -105,74 +118,3 @@ export const useAuthStore = defineStore('auth', () => {
     initialize
   }
 })
-
-// файл с заглушкой для постоянного входа
-// stores/auth.js
-/*import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import axios from 'axios'
-
-export const useAuthStore = defineStore('auth', () => {
-  const user = ref(null)
-  const token = ref(null)
-  const isLoading = ref(false)
-  const isAuthenticated = ref(false)
-
-  const login = async (credentials) => {
-    isLoading.value = true
-    
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    user.value = {
-      id: 1,
-      username: credentials.username,
-      email: `${credentials.username}@institute.ru`,
-      first_name: 'Имя',
-      last_name: 'Фамилия',
-      role: credentials.username === 'admin' ? 'admin' : 'user'
-    }
-    
-    token.value = 'mock-token-' + Date.now()
-    isAuthenticated.value = true
-    
-    localStorage.setItem('auth_token', token.value)
-    localStorage.setItem('user_data', JSON.stringify(user.value))
-    
-    // Устанавливаем заголовок для axios
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
-    
-    isLoading.value = false
-    return { success: true }
-  }
-
-  const logout = () => {
-    user.value = null
-    token.value = null
-    isAuthenticated.value = false
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('user_data')
-    delete axios.defaults.headers.common['Authorization']
-  }
-
-  const initialize = () => {
-    const savedToken = localStorage.getItem('auth_token')
-    const savedUser = localStorage.getItem('user_data')
-    
-    if (savedToken && savedUser) {
-      token.value = savedToken
-      user.value = JSON.parse(savedUser)
-      isAuthenticated.value = true
-      axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`
-    }
-  }
-
-  return {
-    user,
-    token,
-    isLoading,
-    isAuthenticated,
-    login,
-    logout,
-    initialize
-  }
-})*/

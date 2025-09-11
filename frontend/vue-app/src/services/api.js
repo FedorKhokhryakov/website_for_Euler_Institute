@@ -2,6 +2,7 @@ import axios from 'axios'
 
 const API_BASE_URL = 'http://127.0.0.1:8000'
 
+
 export const authAPI = {
   login: (credentials) => axios.post(`${API_BASE_URL}/api/auth/login/`, credentials),
   register: (userData) => axios.post(`${API_BASE_URL}/api/auth/register/`, {
@@ -12,11 +13,7 @@ export const authAPI = {
     last_name: userData.last_name,
     middle_name: userData.middle_name || ''
   }),
-  getUserProfile: () => axios.get(`${API_BASE_URL}/api/auth/user/`, {
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-    }
-  }),
+  getUserProfile: () => axios.get(`${API_BASE_URL}/api/auth/user/`),
 }
 
 export const publicationsAPI = {
@@ -28,4 +25,13 @@ export const publicationsAPI = {
 
 export const usersAPI = {
   getById: (id) => axios.get(`${API_BASE_URL}/api/users/${id}/`),
+  getAll: () => axios.get(`${API_BASE_URL}/api/users/`)
+}
+
+export const reportsAPI = {
+  generate: (reportData) => axios.post(`${API_BASE_URL}/api/reports/`, reportData),
+  getAll: () => axios.get(`${API_BASE_URL}/api/reports/`),
+  download: (id) => axios.get(`${API_BASE_URL}/api/reports/${id}/download/`, {
+    responseType: 'blob'
+  })
 }
