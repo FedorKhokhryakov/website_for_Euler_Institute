@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}Добавить публикацию{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <h2>Добавить публикацию</h2>
+
+        <div class="card">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Тип публикации *</label>
+                                {{ form.type }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Год публикации *</label>
+                                {{ form.year }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Том</label>
+                                {{ form.tome }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Номер</label>
+                                {{ form.number }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Страницы</label>
+                                {{ form.pages }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Идентификационный номер статьи</label>
+                        {{ form.article_identification_number }}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Язык</label>
+                                {{ form.language }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Веб-страница</label>
+                                {{ form.web_page }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Авторы *</label>
+                        {{ form.authors }}
+                        <div class="form-text">Выберите одного или нескольких авторов</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Комментарий</label>
+                        {{ form.comment }}
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                    <a href="{% url 'profile' %}" class="btn btn-secondary">Отмена</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

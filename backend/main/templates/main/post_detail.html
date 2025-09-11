@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ post.get_type_display }} ({{ post.year }}){% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h2>{{ post.get_type_display }} ({{ post.year }})</h2>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Том:</strong> {{ post.tome|default:"Не указан" }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Номер:</strong> {{ post.number|default:"Не указан" }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Страницы:</strong> {{ post.pages|default:"Не указаны" }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Язык:</strong> {{ post.language }}
+                    </div>
+                </div>
+
+                {% if post.article_identification_number %}
+                <div class="mb-3">
+                    <strong>ID статьи:</strong> {{ post.article_identification_number }}
+                </div>
+                {% endif %}
+
+                {% if post.web_page %}
+                <div class="mb-3">
+                    <strong>Веб-страница:</strong>
+                    <a href="{{ post.web_page }}" target="_blank">{{ post.web_page }}</a>
+                </div>
+                {% endif %}
+
+                {% if post.comment %}
+                <div class="mb-4">
+                    <h5>Комментарий</h5>
+                    <p class="card-text">{{ post.comment|linebreaks }}</p>
+                </div>
+                {% endif %}
+
+                <div class="border-top pt-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Авторы:</strong>
+                            {% for author in authors %}
+                                <a href="{% url 'user_posts' author.user.id %}" class="text-decoration-none">
+                                    {{ author.user.username }}
+                                </a>{% if not forloop.last %}, {% endif %}
+                            {% empty %}
+                                <span class="text-warning">Нет авторов</span>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <strong>Опубликовано:</strong> {{ post.created_at|date:"d.m.Y H:i" }}<br>
+                            <strong>Статус:</strong> <span class="badge bg-secondary">{{ post.get_status_display }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-3">
+            <a href="{% url 'all_posts' %}" class="btn btn-secondary">← Назад к публикациям</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
