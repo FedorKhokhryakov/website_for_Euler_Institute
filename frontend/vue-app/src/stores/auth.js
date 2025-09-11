@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authAPI } from '../services/api.js'
 import axios from 'axios'
+import { setAuthToken } from '../services/axiosConfig.js'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -15,6 +16,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading.value = true
     try {
       const response = await authAPI.login(credentials)
+      setAuthToken(response.data.token)
 
       console.log('Login response:', response.data)
       
@@ -74,7 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (savedToken) {
       try {
 
-        axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`
+        setAuthToken(savedToken)
 
         const response = await authAPI.getUserProfile()
         user.value = response.data

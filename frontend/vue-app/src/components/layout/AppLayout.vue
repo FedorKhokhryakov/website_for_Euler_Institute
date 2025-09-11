@@ -68,8 +68,8 @@ const logout = () => {
 
 .sidebar {
   width: 270px;
-  background-color: #f8f9fa;
-  border-right: 1px solid #e0e0e0;
+  background-color: var(--color-surface);
+  border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   padding: 0rem;
@@ -77,11 +77,11 @@ const logout = () => {
 
 .sidebar-header {
   padding: 1rem 0;
-  background-color: #2e7d32;
+  background-color: var(--color-primary);
 }
 
 .sidebar-header h2 {
-  color: white;
+  color: var(--color-text-light);
   margin: 0;
   font-size: 1.2rem;
   font-weight: 600;
@@ -97,34 +97,34 @@ const logout = () => {
 
 .nav-link {
   padding: 8px 12px;
-  color: #333;
+  color: var(--color-text-primary);
   text-decoration: none;
   border: 1px solid transparent;
   font-size: 0.95rem;
 }
 
 .nav-link:hover {
-  background-color: #e9ecef;
+  background-color: var(--color-hover);
 }
 
 .nav-link.router-link-active {
-  background-color: #2e7d32;
-  color: white;
+  background-color: var(--color-primary);
+  color: var(--color-text-light);
 }
 
 .admin-link {
-  color: #d32f2f;
+  color: var(--color-secondary);
   font-weight: 500;
 }
 
 .admin-link.router-link-active {
-  background-color: #d32f2f;
-  color: white;
+  background-color: var(--color-secondary);
+  color: var(--color-text-light);
 }
 
 .logout-button {
-  background-color: #dc3545;
-  color: white;
+  background-color: var(--color-secondary);
+  color: var(--color-text-light);
   padding: 8px;
   border: none;
   font-size: 0.95rem;
@@ -134,14 +134,14 @@ const logout = () => {
 }
 
 .logout-button:hover {
-  background-color: #c82333;
+  background-color: var(--color-secondary-dark);
 }
 
 .main-content {
   align-content: right;
   flex: 1;
   padding: 1rem;
-  background-color: white;
+  background-color: var(--color-background);
   z-index: 1;
 }
 </style>

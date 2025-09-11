@@ -16,7 +16,7 @@
       <div class="profile-main">
         <div class="photo-placeholder">
           <div class="photo-icon">
-            <span>📷</span>
+            <span>👤</span>
           </div>
           <p>Фотография</p>
         </div>
@@ -24,6 +24,11 @@
           <div class="info-row">
             <span class="info-label">ФИО:</span>
             <span class="info-value">{{ userData.last_name }} {{ userData.first_name }} {{ userData.middle_name || '' }}</span>
+          </div>
+          
+          <div class="info-row">
+            <span class="info-label">Имя пользователя:</span>
+            <span class="info-value">{{ userData.username }}</span>
           </div>
           
           <div class="info-row">
@@ -75,8 +80,12 @@
             <span class="info-label">Статус:</span>
             <span class="info-value">{{ userData.status || 'Не указан' }}</span>
           </div>
+          
+          <div class="info-row">
+            <span class="info-label">Роль:</span>
+            <span class="info-value">{{ userData.role === 'admin' ? 'Администратор' : 'Пользователь' }}</span>
+          </div>
         </div>
-
       </div>
     </div>
   </div>
@@ -85,13 +94,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
-import { storeToRefs } from 'pinia'
+import { usersAPI } from '../services/api.js'
 
 const route = useRoute()
-const authStore = useAuthStore()
-const { user: currentUser } = storeToRefs(authStore)
-
 const userId = route.params.id
 const userData = ref(null)
 const loading = ref(true)
@@ -102,28 +107,20 @@ const loadUserData = async () => {
     loading.value = true
     error.value = ''
     
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    userData.value = {
-      id: userId,
-      first_name: 'Иван',
-      last_name: 'Иванов',
-      middle_name: 'Иванович',
-      email: 'ivanov@institute.ru',
-      laboratory: 'Лаборатория математического моделирования',
-      birth_year: 1985,
-      graduation_year: 2007,
-      academic_degree: 'Кандидат физико-математических наук',
-      degree_year: 2011,
-      academic_title: 'Доцент',
-      position: 'Старший научный сотрудник',
-      rate: '1.0',
-      status: 'Основной сотрудник'
-    }
+    const response = await usersAPI.getById(userId)
+    userData.value = response.data
     
   } catch (err) {
-    error.value = 'Не удалось загрузить данные пользователя'
-    console.error('Ошибка загрузки:', err)
+    console.error('Ошибка загрузки данных пользователя:', err)
+    if (err.response?.status === 404) {
+      error.value = 'Пользователь не найден'
+    } else if (err.response?.status === 401) {
+      error.value = 'Требуется авторизация'
+    } else if (err.response?.status === 403) {
+      error.value = 'Недостаточно прав для просмотра'
+    } else {
+      error.value = 'Не удалось загрузить данные пользователя'
+    }
   } finally {
     loading.value = false
   }
