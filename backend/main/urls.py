@@ -9,6 +9,8 @@ urlpatterns = [
     path('api/auth/login/', api_views.login_view, name='login'),
     path('api/auth/user/', api_views.get_current_user, name='current-user'),
 
+    path('api/auth/register/', api_views.register_user, name='register'),
+
     path('api/publications/', api_views.get_user_publications, name='user-publications'),
     path('api/publications/<int:id>/', api_views.get_publication_detail, name='publication-detail'),
     path('api/publications/<int:id>/check-owner/', api_views.check_publication_owner, name='check-owner'),

@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializer import UserAuthSerializer, LoginSerializer, UserSerializer, OwnerCheckSerializer, \
-    PublicationCreateSerializer, PublicationSerializer
+    PublicationCreateSerializer, PublicationSerializer, RegisterSerializer
 from .models import User, Post
 
 
@@ -107,18 +107,56 @@ def get_user_profile(request, id):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-def login_view(request):
-    serializer = LoginSerializer(data=request.data)
+def register_user(request):
+    serializer = RegisterSerializer(data=request.data)
 
     if serializer.is_valid():
-        user = serializer.validated_data['user']
-        refresh = RefreshToken.for_user(user)
+        try:
+            user = serializer.save()
+            user_data = UserSerializer(user).data
 
-        user_data = UserSerializer(user).data
+            return Response({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "middle_name": user.middle_name,
+                "message": "User created successfully"
+            }, status=status.HTTP_201_CREATED)
 
-        return Response({
-            'token': str(refresh.access_token),
-            'user': user_data
-        }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "error": "Ошибка при создании пользователя",
+                "details": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        errors = serializer.errors
+
+        if 'username' in errors:
+            return Response({
+                "error": "Username already exists"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        elif 'email' in errors:
+            return Response({
+                "error": "Email already registered"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        elif 'password' in errors:
+            return Response({
+                "error": "Password validation failed",
+                "details": errors['password']
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        elif 'non_field_errors' in errors:
+            return Response({
+                "error": errors['non_field_errors'][0]
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        else:
+            return Response({
+                "error": "Invalid data",
+                "details": errors
+            }, status=status.HTTP_400_BAD_REQUEST)

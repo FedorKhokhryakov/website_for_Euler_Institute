@@ -1,3 +1,4 @@
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from .models import User, Post, PostAuthor
@@ -194,3 +195,40 @@ class PublicationCreateSerializer(serializers.ModelSerializer):
 class OwnerCheckSerializer(serializers.Serializer):
     isOwner = serializers.BooleanField()
     isAdmin = serializers.BooleanField()
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+
+    class Meta:
+        model = User
+        fields = [
+            'username', 'email', 'password',
+            'first_name', 'last_name', 'middle_name'
+        ]
+        extra_kwargs = {
+            'first_name': {'required': True},
+            'last_name': {'required': True},
+            'middle_name': {'required': False, 'allow_blank': True}
+        }
+
+    def validate(self, attrs):
+        if User.objects.filter(username=attrs['username']).exists():
+            raise serializers.ValidationError({"username": "Пользователь с таким именем уже существует"})
+
+        if User.objects.filter(email=attrs['email']).exists():
+            raise serializers.ValidationError({"email": "Пользователь с таким email уже зарегистрирован"})
+
+        return attrs
+
+
+    def create(self, validated_data):
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            middle_name=validated_data.get('middle_name', '')
+        )
+        return user
