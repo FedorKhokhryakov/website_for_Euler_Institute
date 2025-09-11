@@ -5,6 +5,7 @@ from django.urls import reverse
 
 
 class User(AbstractUser):
+    middle_name = models.CharField(_('отчество'), max_length=150, blank=True)
     email = models.EmailField(_('email address'), unique=True)
 
     laboratory = models.CharField(max_length=100, blank=True, verbose_name="Лаборатория")
@@ -18,15 +19,30 @@ class User(AbstractUser):
     fte = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True, verbose_name="Ставка")
     is_admin = models.BooleanField(default=False, verbose_name="Администратор")
 
-    first_name = None
-    last_name = None
 
     class Meta:
         verbose_name = "Пользователь"
         verbose_name_plural = "Пользователи"
 
     def __str__(self):
-        return f"{self.username} ({self.email})"
+        if self.last_name and self.first_name:
+            full_name = f"{self.last_name} {self.first_name}"
+            if self.middle_name:
+                full_name += f" {self.middle_name}"
+            return full_name
+        return self.username
+
+    @property
+    def full_name(self):
+        """Возвращает полное ФИО"""
+        parts = []
+        if self.last_name:
+            parts.append(self.last_name)
+        if self.first_name:
+            parts.append(self.first_name)
+        if self.middle_name:
+            parts.append(self.middle_name)
+        return " ".join(parts) if parts else self.username
 
 
 class Post(models.Model):
@@ -47,6 +63,7 @@ class Post(models.Model):
     ]
 
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, verbose_name="Тип публикации")
+    title = models.CharField(max_length=255, blank=True, verbose_name="Название")
     tome = models.IntegerField(null=True, blank=True, verbose_name="Том")
     number = models.IntegerField(null=True, blank=True, verbose_name="Номер")
     article_identification_number = models.CharField(max_length=100, blank=True,
@@ -59,6 +76,11 @@ class Post(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Статус")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
     accepted_at = models.DateTimeField(null=True, blank=True, verbose_name="Принято")
+    received_date = models.DateField(null=True, blank=True, verbose_name="Дата получения")
+    decision_date = models.DateField(null=True, blank=True, verbose_name="Дата решения")
+    published_date = models.DateField(null=True, blank=True, verbose_name="Дата публикации")
+    journal_name = models.CharField(max_length=255, blank=True, verbose_name="Название журнала")
+    has_faculty_coauthors = models.BooleanField(default=False, verbose_name="Есть соавторы с факультета")
 
     class Meta:
         verbose_name = "Публикация"
@@ -66,7 +88,7 @@ class Post(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.get_type_display()} ({self.year})"
+        return self.title or f"{self.get_type_display()} ({self.year})"
 
     def get_absolute_url(self):
         return reverse('post_detail', kwargs={'pk': self.pk})

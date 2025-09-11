@@ -161,6 +161,29 @@
                         </div>
                     </div>
 
+                    <h5 class="border-bottom pb-2 mb-3 mt-4">Персональная информация</h5>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Фамилия *</label>
+                                {{ form.last_name }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Имя *</label>
+                                {{ form.first_name }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Отчество</label>
+                                {{ form.middle_name }}
+                            </div>
+                        </div>
+                    </div>
+
                     <button type="submit" class="btn btn-primary w-100">Зарегистрироваться</button>
                 </form>
 

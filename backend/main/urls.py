@@ -1,9 +1,21 @@
 from django.urls import path, include
-from . import views
+from . import views, api_views
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.forms import AuthenticationForm
+from django.urls import path
+
 
 urlpatterns = [
+    path('api/auth/login/', api_views.login_view, name='login'),
+    path('api/auth/user/', api_views.get_current_user, name='current-user'),
+
+    path('api/publications/', api_views.get_user_publications, name='user-publications'),
+    path('api/publications/<int:id>/', api_views.get_publication_detail, name='publication-detail'),
+    path('api/publications/<int:id>/check-owner/', api_views.check_publication_owner, name='check-owner'),
+    path('api/publications1/', api_views.create_publication, name='create-publication'),
+
+    path('api/users/<int:id>/', api_views.get_user_profile, name='user-profile'),
+
     path('', views.home, name='home'),
     path('profile/', views.profile, name='profile'),
     path('add-publication/', views.add_post, name='add_post'),

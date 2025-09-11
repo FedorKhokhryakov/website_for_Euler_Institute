@@ -235,7 +235,7 @@ def admin_reports(request):
             return redirect("admin_reports")
         return redirect(f"/reports/generate/?user={user_id}&year={year}")
 
-    return render(request, "main/report_page.html", {  # путь с app_name
+    return render(request, "main/report_page.html", {
         "users": users,
         "years": range(2000, datetime.now().year + 1)
     })
@@ -248,7 +248,7 @@ def generate_user_report(request):
 
     if not user_id or not year:
         messages.error(request, "Не выбраны пользователь или год.")
-        return redirect("report_page")  # редирект на страницу выбора пользователя
+        return redirect("report_page")
 
     try:
         year = int(year)

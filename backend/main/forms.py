@@ -4,6 +4,22 @@ from .models import User, Post, PostAuthor
 
 
 class CustomUserCreationForm(UserCreationForm):
+
+    last_name = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Фамилия'})
+    )
+    first_name = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Имя'})
+    )
+    middle_name = forms.CharField(
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Отчество'})
+    )
     username = forms.CharField(
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Имя пользователя'})
     )
@@ -66,23 +82,30 @@ class CustomUserCreationForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password1', 'password2']
+        fields = ['username', 'email', 'password1', 'password2',
+                  'last_name', 'first_name', 'middle_name',
+                  'laboratory', 'year_of_birth', 'year_of_graduation',
+                  'academic_degree', 'year_of_degree', 'status',
+                  'position', 'title', 'fte']
 
     def save(self, commit=True):
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
+        user.last_name = self.cleaned_data['last_name']
+        user.first_name = self.cleaned_data['first_name']
+        user.middle_name = self.cleaned_data['middle_name']
+
+        user.laboratory = self.cleaned_data['laboratory']
+        user.year_of_birth = self.cleaned_data['year_of_birth']
+        user.year_of_graduation = self.cleaned_data['year_of_graduation']
+        user.academic_degree = self.cleaned_data['academic_degree']
+        user.year_of_degree = self.cleaned_data.get('year_of_degree')
+        user.status = self.cleaned_data['status']
+        user.position = self.cleaned_data['position']
+        user.title = self.cleaned_data['title']
+        user.fte = self.cleaned_data['fte']
 
         if commit:
-            user.save()
-            user.laboratory = self.cleaned_data['laboratory']
-            user.year_of_birth = self.cleaned_data['year_of_birth']
-            user.year_of_graduation = self.cleaned_data['year_of_graduation']
-            user.academic_degree = self.cleaned_data['academic_degree']
-            user.year_of_degree = self.cleaned_data['year_of_degree']
-            user.status = self.cleaned_data['status']
-            user.position = self.cleaned_data['position']
-            user.title = self.cleaned_data['title']
-            user.fte = self.cleaned_data['fte']
             user.save()
 
         return user
@@ -92,13 +115,18 @@ class UserProfileForm(forms.ModelForm):
     class Meta:
         model = User
         fields = [
-            'username', 'email', 'laboratory', 'year_of_birth',
-            'year_of_graduation', 'academic_degree', 'year_of_degree',
-            'status', 'position', 'title', 'fte'
+            'username', 'email',
+            'last_name', 'first_name', 'middle_name',
+            'laboratory', 'year_of_birth', 'year_of_graduation',
+            'academic_degree', 'year_of_degree', 'status',
+            'position', 'title', 'fte'
         ]
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'middle_name': forms.TextInput(attrs={'class': 'form-control'}),
             'laboratory': forms.TextInput(attrs={'class': 'form-control'}),
             'year_of_birth': forms.NumberInput(attrs={'class': 'form-control'}),
             'year_of_graduation': forms.NumberInput(attrs={'class': 'form-control'}),
