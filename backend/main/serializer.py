@@ -113,11 +113,18 @@ class PublicationSerializer(serializers.ModelSerializer):
 
     def get_journal(self, obj):
         type_mapping = {
-            'article': 'Научный журнал',
-            'conference': 'Материалы конференции',
-            'book': 'Издательство',
-            'report': 'Отчет',
-            'other': 'Публикация'
+            'publication': 'Публикация',
+            'monograph': 'Монография',
+            'reports': 'Доклад',
+            'lectures': 'Курс лекций',
+            'patents': 'Патент',
+            'supervision': 'Научное руководство',
+            'editing': 'Редактирование научных изданий',
+            'editorial_board': 'Работа в ред. коллегии',
+            'org_work': 'Научно-организационная работа',
+            'opposition': 'Оппонирование',
+            'grants': 'Грант',
+            'awards': 'Награда'
         }
         return type_mapping.get(obj.type, 'Публикация')
 

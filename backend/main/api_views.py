@@ -66,10 +66,27 @@ def get_publication_detail(request, id):
 def create_publication(request):
     data = request.data.copy()
 
-    if 'authors' not in data:
-        data['authors'] = [request.user.id]
-    elif request.user.id not in data['authors']:
-        data['authors'].append(request.user.id)
+    authors_input = data.get('authors', '')
+    authors_list = []
+
+    if authors_input and authors_input != 'string':
+        if isinstance(authors_input, str):
+            authors_input = authors_input.strip('[]')
+            for aid in authors_input.split(','):
+                aid = aid.strip()
+                if aid and aid.isdigit():
+                    authors_list.append(int(aid))
+        elif isinstance(authors_input, list):
+            for aid in authors_input:
+                if isinstance(aid, int):
+                    authors_list.append(aid)
+                elif isinstance(aid, str) and aid.isdigit():
+                    authors_list.append(int(aid))
+
+    if request.user.id not in authors_list:
+        authors_list.append(request.user.id)
+
+    data['authors'] = authors_list
 
     serializer = PublicationCreateSerializer(data=data)
 
@@ -290,7 +307,7 @@ def list_reports(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@api_view(['GET'])
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def download_report_api(request):
     """
