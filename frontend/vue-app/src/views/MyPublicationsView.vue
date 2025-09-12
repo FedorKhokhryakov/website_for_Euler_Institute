@@ -165,7 +165,7 @@ watch(filterType, () => {
 const loadPublications = async () => {
   loading.value = true;
   try {
-    const response = await publicationsAPI.getAll()
+    const response = await publicationsAPI.getUserAll()
     console.log("Публикации: ", response.data)
     publications.value = response.data;
   } catch (error) {

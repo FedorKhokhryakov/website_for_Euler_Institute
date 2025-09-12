@@ -128,6 +128,7 @@ th {
 
 .actions {
   gap: 0.5rem;
+  display: flex
 }
 
 .btn-edit, .btn-delete {

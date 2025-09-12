@@ -4,12 +4,15 @@
       <select v-model="selectedAuthor" class="filter-select">
         <option value="">Все авторы</option>
         <option v-for="author in authors" :key="author.id" :value="author.id">
-          {{ author.name }}
+          {{ author.first_name }} {{ author.middle_name }} {{ author.last_name }}
         </option>
       </select>
+      <button @click="loadPublications" class="btn-refresh">Обновить</button>
     </div>
 
-    <div class="publications-table">
+    <div v-if="loading" class="loading">Загрузка публикаций...</div>
+    <div v-else-if="error" class="error">{{ error }}</div>
+    <div v-else class="publications-table">
       <table>
         <thead>
           <tr>
@@ -18,6 +21,7 @@
             <th>Автор</th>
             <th>Год</th>
             <th>Тип</th>
+            <th>Статус</th>
             <th>Действия</th>
           </tr>
         </thead>
@@ -25,9 +29,10 @@
           <tr v-for="publication in filteredPublications" :key="publication.id">
             <td>{{ publication.id }}</td>
             <td>{{ publication.title }}</td>
-            <td>{{ publication.author }}</td>
+            <td>{{ publication.authors }}</td>
             <td>{{ publication.year }}</td>
             <td>{{ publication.type }}</td>
+            <td>{{ publication.status }}</td>
             <td class="actions">
               <button class="btn-edit" @click="editPublication(publication)">
                 ✏️
@@ -44,27 +49,43 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { publicationsAPI, usersAPI } from '../../services/api.js'
 
 const selectedAuthor = ref('')
+const publications = ref([])
+const authors = ref([])
+const loading = ref(false)
+const error = ref('')
 
-// Заглушка данных
-const publications = ref([
-  { id: 1, title: 'Математический анализ', author: 'Иванов И.И.', year: 2024, type: 'Монография' },
-  { id: 2, title: 'Физика частиц', author: 'Петров П.П.', year: 2023, type: 'Статья' },
-  { id: 3, title: 'Алгоритмы машинного обучения', author: 'Сидорова А.В.', year: 2024, type: 'Доклад' }
-])
+const loadPublications = async () => {
+  try {
+    loading.value = true
+    error.value = ''
+    const response = await publicationsAPI.getAll()
+    console.log(response.data)
+    publications.value = response.data
+  } catch (err) {
+    console.error('Ошибка загрузки публикаций:', err)
+    error.value = 'Не удалось загрузить публикации'
+  } finally {
+    loading.value = false
+  }
+}
 
-const authors = ref([
-  { id: 1, name: 'Иванов И.И.' },
-  { id: 2, name: 'Петров П.П.' },
-  { id: 3, name: 'Сидорова А.В.' }
-])
+const loadUsers = async () => {
+  try {
+    const response = await usersAPI.getAll()
+    authors.value = response.data
+  } catch (err) {
+    console.error('Ошибка загрузки пользователей:', err)
+  }
+}
 
 const filteredPublications = computed(() => {
   if (!selectedAuthor.value) return publications.value
   return publications.value.filter(pub => 
-    pub.author === authors.value.find(a => a.id === parseInt(selectedAuthor.value))?.name
+    pub.author === parseInt(selectedAuthor.value)
   )
 })
 
@@ -72,11 +93,22 @@ const editPublication = (publication) => {
   console.log('Редактировать публикацию:', publication)
 }
 
-const deletePublication = (publication) => {
+const deletePublication = async (publication) => {
   if (confirm(`Удалить публикацию "${publication.title}"?`)) {
-    console.log('Удалить публикацию:', publication)
+    try {
+      await loadPublications()
+      console.log('Публикация удалена:', publication)
+    } catch (err) {
+      console.error('Ошибка удаления публикации:', err)
+      alert('Не удалось удалить публикацию')
+    }
   }
 }
+
+onMounted(() => {
+  loadPublications()
+  loadUsers()
+})
 </script>
 
 <style scoped>
@@ -85,13 +117,37 @@ const deletePublication = (publication) => {
 }
 
 .filters-section {
+  display: flex;
+  gap: 1rem;
   margin-bottom: 1rem;
+  align-items: center;
 }
 
 .filter-select {
   padding: 0.5rem;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  min-width: 200px;
+}
+
+.btn-refresh {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ddd;
+  background: #f8f9fa;
+  cursor: pointer;
+}
+
+.btn-refresh:hover {
+  background: #e9ecef;
+}
+
+.loading, .error {
+  padding: 2rem;
+  text-align: center;
+  font-size: 1.1rem;
+}
+
+.error {
+  color: #dc3545;
 }
 
 .publications-table {
