@@ -215,7 +215,7 @@ def delete_post(request, pk):
     return render(request, 'main/delete_post.html', {'post': post})
 
 def is_admin(user):
-    return user.is_staff
+    return user.is_admin
 
 @user_passes_test(is_admin)
 def report_page(request):

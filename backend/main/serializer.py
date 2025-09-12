@@ -41,11 +41,11 @@ class LoginSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
-    birth_year = serializers.IntegerField(source='year_of_birth')
-    graduation_year = serializers.IntegerField(source='year_of_graduation')
-    degree_year = serializers.IntegerField(source='year_of_degree')
-    academic_title = serializers.CharField(source='title')
-    rate = serializers.DecimalField(source='fte', max_digits=3, decimal_places=2)
+    birth_year = serializers.IntegerField(source='year_of_birth', allow_null=True)
+    graduation_year = serializers.IntegerField(source='year_of_graduation', allow_null=True)
+    degree_year = serializers.IntegerField(source='year_of_degree', allow_null=True)
+    academic_title = serializers.CharField(source='title', allow_null=True)
+    rate = serializers.DecimalField(source='fte', max_digits=3, decimal_places=2, allow_null=True)
 
     class Meta:
         model = User
@@ -61,7 +61,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class PublicationSerializer(serializers.ModelSerializer):
-    authors = serializers.SerializerMethodField()
+    authors = serializers.CharField(source='authors_string')
     authorCount = serializers.SerializerMethodField()
 
     title = serializers.SerializerMethodField()
@@ -69,6 +69,7 @@ class PublicationSerializer(serializers.ModelSerializer):
     decisionDate = serializers.SerializerMethodField()
     publishedDate = serializers.SerializerMethodField()
     journal = serializers.SerializerMethodField()
+    pages = serializers.CharField()
     volume = serializers.CharField(source='tome')
     issue = serializers.CharField(source='number')
     articleId = serializers.CharField(source='article_identification_number')
@@ -88,60 +89,46 @@ class PublicationSerializer(serializers.ModelSerializer):
         ]
 
     def get_authors(self, obj):
-        authors = obj.authors.select_related('user').order_by('order')
-        return [
-            f"{author.user.last_name} {author.user.first_name} {author.user.middle_name or ''}".strip()
-            for author in authors
-        ]
+        return obj.authors_strings
+
+    def get_userId(self, obj):
+        return obj.created_by.id if obj.created_by else None
 
     def get_authorCount(self, obj):
-        return obj.authors.count()
+        if obj.authors_string:
+            authors = [a.strip() for a in obj.authors_string.split(',') if a.strip()]
+            return len(authors)
+        return 0
 
     def get_title(self, obj):
-        return f"{obj.get_type_display()} {obj.year}"
+        return obj.title
 
     def get_receivedDate(self, obj):
-        return obj.created_at.date() if obj.created_at else None
+        return obj.received_date
 
     def get_decisionDate(self, obj):
-        return obj.accepted_at.date() if obj.accepted_at else None
+        return obj.decision_date
 
     def get_publishedDate(self, obj):
-        if obj.year:
-            return f"{obj.year}-01-01"
-        return None
+        return obj.published_date
 
     def get_journal(self, obj):
-        type_mapping = {
-            'article': 'Научный журнал',
-            'conference': 'Материалы конференции',
-            'book': 'Издательство',
-            'report': 'Отчет',
-            'other': 'Публикация'
-        }
-        return type_mapping.get(obj.type, 'Публикация')
+        return obj.journal_name
 
     def get_facultyCoauthors(self, obj):
         return obj.authors.count() > 1
 
-    def get_userId(self, obj):
-        first_author = obj.authors.select_related('user').first()
-        print(first_author)
-        return first_author.user.id if first_author else None
 
 
 class PublicationCreateSerializer(serializers.ModelSerializer):
-    authors = serializers.ListField(
-        child=serializers.IntegerField(),
-        write_only=True,
-        required=True
-    )
+    authors = serializers.CharField(write_only=True, required=True)
 
     title = serializers.CharField(write_only=True, required=False)
     receivedDate = serializers.DateField(write_only=True, required=False, source='received_date')
     decisionDate = serializers.DateField(write_only=True, required=False, source='decision_date')
     publishedDate = serializers.DateField(write_only=True, required=False, source='published_date')
     journal = serializers.CharField(write_only=True, required=False, source='journal_name')
+    pages = serializers.CharField(write_only=True, required=False)
     volume = serializers.CharField(write_only=True, required=False, source='tome')
     issue = serializers.CharField(write_only=True, required=False, source='number')
     articleId = serializers.CharField(write_only=True, required=False, source='article_identification_number')
@@ -157,6 +144,8 @@ class PublicationCreateSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
+
+        authors_string = validated_data.pop('authors')
         volume = validated_data.pop('tome', None)
         if volume and volume != 'string':
             try:
@@ -176,24 +165,16 @@ class PublicationCreateSerializer(serializers.ModelSerializer):
         else:
             validated_data['number'] = None
 
-        pges = validated_data.pop('pages', None)
-        if pges and pges != 'string':
-            try:
-                validated_data['number'] = int(pges)
-            except (ValueError, TypeError):
-                validated_data['number'] = None
-        else:
-            validated_data['number'] = None
+        request = self.context.get('request')
 
-        authors_ids = validated_data.pop('authors')
-        post = Post.objects.create(**validated_data)
+        if not request or not hasattr(request, 'user'):
+            raise serializers.ValidationError("Пользователь не аутентифицирован")
 
-        for order, author_id in enumerate(authors_ids):
-            try:
-                author = User.objects.get(id=author_id)
-                PostAuthor.objects.create(post=post, user=author, order=order)
-            except User.DoesNotExist:
-                continue
+        post = Post.objects.create(
+            authors_string=authors_string,
+            created_by=request.user,
+            **validated_data
+        )
 
         return post
 

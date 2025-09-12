@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
+from django.conf import settings
 
 
 class User(AbstractUser):
@@ -47,11 +48,18 @@ class User(AbstractUser):
 
 class Post(models.Model):
     TYPE_CHOICES = [
-        ('article', 'Статья'),
-        ('conference', 'Конференция'),
-        ('book', 'Книга'),
-        ('report', 'Отчет'),
-        ('other', 'Другое'),
+        ('publication', 'Публикация'),
+        ('monograph', 'Монография'),
+        ('reports', 'Доклад'),
+        ('lectures', 'Курс лекций'),
+        ('patents', 'Патент'),
+        ('supervision', 'Научное руководство'),
+        ('editing', 'Редактирование научных изданий'),
+        ('editorial_board', 'Работа в ред. коллегии'),
+        ('org_work', 'Научно-организационная работа'),
+        ('opposition', 'Оппонирование'),
+        ('grants', 'Грант'),
+        ('awards', 'Награда'),
     ]
 
     STATUS_CHOICES = [
@@ -62,13 +70,23 @@ class Post(models.Model):
         ('rejected', 'Отклонено'),
     ]
 
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='posts',
+        verbose_name='Создатель публикации',
+        null=True,
+        blank=True
+    )
+
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, verbose_name="Тип публикации")
     title = models.CharField(max_length=255, blank=True, verbose_name="Название")
     tome = models.IntegerField(null=True, blank=True, verbose_name="Том")
     number = models.IntegerField(null=True, blank=True, verbose_name="Номер")
     article_identification_number = models.CharField(max_length=100, blank=True,
                                                      verbose_name="Идентификационный номер статьи")
-    pages = models.IntegerField(null=True, blank=True, verbose_name="Страницы")
+    authors_string = models.CharField(max_length=255, blank=True, verbose_name="Авторы")
+    pages = models.CharField(max_length=100, null=True, blank=True, verbose_name="Страницы")
     year = models.IntegerField(verbose_name="Год публикации")
     language = models.CharField(max_length=50, default='Русский', verbose_name="Язык")
     web_page = models.URLField(blank=True, verbose_name="Веб-страница")
@@ -130,9 +148,9 @@ class Report(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Пользователь")
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_reports',
-                                   verbose_name="Создатель отчета")
+                                   verbose_name="Создатель отчета", null=True, blank=True)
     year = models.IntegerField(verbose_name="Год отчета")
-    report_type = models.CharField(max_length=20, choices=REPORT_TYPES, verbose_name="Тип отчета")
+    report_type = models.CharField(max_length=20, choices=REPORT_TYPES, verbose_name="Тип отчета", null=True, blank=True)
     format = models.CharField(max_length=10, choices=REPORT_FORMATS, default='rtf', verbose_name="Формат")
     status = models.CharField(max_length=20, choices=REPORT_STATUSES, default='pending', verbose_name="Статус")
     name = models.CharField(max_length=255, verbose_name="Название отчета")
