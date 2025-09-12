@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}Поиск{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Расширенный поиск</h2>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="get" action="{% url 'search' %}">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <input type="text" name="query" class="form-control" 
+                                   placeholder="Введите поисковый запрос..." value="{{ query }}">
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="search_type" 
+                                       id="search_posts" value="posts"
+                                       {% if search_type == 'posts' %}checked{% endif %}>
+                                <label class="form-check-label" for="search_posts">Публикации</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="search_type"
+                                       id="search_users" value="users"
+                                       {% if search_type == 'users' %}checked{% endif %}>
+                                <label class="form-check-label" for="search_users">Пользователи</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">Искать</button>
+                        {% if query %}
+                            <a href="{% url 'search' %}" class="btn btn-outline-secondary">Сбросить</a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if query %}
+            {% if search_type == 'posts' and results.posts %}
+                <h4>Результаты поиска публикаций ({{ results.posts|length }})</h4>
+                {% for post in results.posts %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <a href="{% url 'post_detail' post.pk %}" class="text-decoration-none">
+                                {{ post.get_type_display }} ({{ post.year }})
+                            </a>
+                        </h5>
+
+                        {% if post.article_identification_number %}
+                        <p class="card-text">
+                            <strong>ID статьи:</strong> {{ post.article_identification_number }}
+                        </p>
+                        {% endif %}
+
+                        {% if post.comment %}
+                        <p class="card-text">{{ post.comment|truncatewords:30 }}</p>
+                        {% endif %}
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                Авторы:
+                                {% for author in post.authors.all %}
+                                    {{ author.user.username }}{% if not forloop.last %}, {% endif %}
+                                {% empty %}
+                                    <span class="text-warning">Нет авторов</span>
+                                {% endfor %}
+                            </small>
+                            <small class="text-muted">
+                                {{ post.created_at|date:"d.m.Y H:i" }} |
+                                Статус: <span class="badge bg-secondary">{{ post.get_status_display }}</span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% elif search_type == 'users' and results.users %}
+                <h4>Результаты поиска пользователей ({{ results.users|length }})</h4>
+                <div class="row">
+                    {% for user in results.users %}
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <a href="{% url 'user_posts' user.id %}" class="text-decoration-none">
+                                        {{ user.username }}
+                                    </a>
+                                </h5>
+                                <p class="card-text">
+                                    <strong>Лаборатория:</strong> {{ user.laboratory|default:"Не указана" }}<br>
+                                    <strong>Должность:</strong> {{ user.position|default:"Не указана" }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    По запросу "{{ query }}" ничего не найдено.
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

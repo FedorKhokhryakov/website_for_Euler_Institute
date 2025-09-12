@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Все публикации{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Все публикации</h2>
+            <a href="{% url 'add_post' %}" class="btn btn-primary">Добавить публикацию</a>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="get" action="{% url 'all_posts' %}">
+                    <div class="input-group">
+                        <input type="text" name="query" class="form-control"
+                               placeholder="Поиск по ID статьи, комментариям или авторам..."
+                               value="{{ request.GET.query }}">
+                        <button type="submit" class="btn btn-primary">Найти</button>
+                        {% if request.GET.query %}
+                            <a href="{% url 'all_posts' %}" class="btn btn-outline-secondary">Сбросить</a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if posts %}
+            {% for post in posts %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <a href="{% url 'post_detail' post.pk %}" class="text-decoration-none">
+                            {{ post.get_type_display }} ({{ post.year }})
+                        </a>
+                    </h5>
+
+                    {% if post.article_identification_number %}
+                    <p class="card-text">
+                        <strong>ID статьи:</strong> {{ post.article_identification_number }}
+                    </p>
+                    {% endif %}
+
+                    {% if post.comment %}
+                    <p class="card-text">{{ post.comment|truncatewords:30 }}</p>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            Авторы:
+                            {% for author in post.authors.all %}
+                                <a href="{% url 'user_posts' author.user.id %}" class="text-decoration-none">
+                                    {{ author.user.username }}
+                                </a>{% if not forloop.last %}, {% endif %}
+                            {% empty %}
+                                <span class="text-warning">Нет авторов</span>
+                            {% endfor %}
+                        </small>
+                        <small class="text-muted">
+                            {{ post.created_at|date:"d.m.Y H:i" }} |
+                            Статус: <span class="badge bg-secondary">{{ post.get_status_display }}</span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-info">
+                {% if request.GET.query %}
+                    Публикации по запросу "{{ request.GET.query }}" не найдены.
+                {% else %}
+                    Публикаций пока нет.
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
