@@ -174,7 +174,7 @@ const submitForm = async () => {
     const publicationData = {
       type: publication.type,
       title: publication.title,
-      authors: publication.authors.split(',').map(author => author.trim()),
+      authors: publication.authors,
       authorCount: parseInt(publication.authorCount),
       receivedDate: publication.receivedDate || null,
       decisionDate: publication.decisionDate || null,

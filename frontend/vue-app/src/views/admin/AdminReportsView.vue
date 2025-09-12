@@ -18,7 +18,7 @@
               class="dropdown-item"
               @click="selectUser(user)"
             >
-              {{ user.full_name || user.fullName }}
+              {{ getUserFullName(user) }}
             </div>
             <div v-if="filteredUsers.length === 0" class="dropdown-item no-results">
               Сотрудники не найдены
@@ -38,8 +38,10 @@
         {{ isGenerating ? 'Генерация...' : 'Сгенерировать' }}
       </button>
     </div>
+  </div>
+</template>
 
-    <div class="saved-reports-section">
+<!--<div class="saved-reports-section">
       <h3>Сохраненные отчеты</h3>
       <div v-if="isLoading" class="loading">Загрузка отчетов...</div>
       <div v-else-if="reports.length === 0" class="no-reports">Нет сохраненных отчетов</div>
@@ -63,9 +65,7 @@
           </tr>
         </tbody>
       </table>
-    </div>
-  </div>
-</template>
+    </div>-->
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
@@ -84,12 +84,23 @@ const isLoading = ref(false)
 const isDownloading = ref(false)
 
 const users = ref([])
-const years = ref([2024, 2023, 2022, 2021])
 const reports = ref([])
+
+
+const years = computed(() => {
+  const startYear = 2000
+  const endYear = 2025
+  const yearList = []
+  for (let year = endYear; year >= startYear; year--) {
+    yearList.push(year)
+  }
+  return yearList
+})
 
 const loadUsers = async () => {
   try {
     const response = await usersAPI.getAll()
+    console.log(response.data)
     users.value = response.data
   } catch (error) {
     console.error('Ошибка загрузки пользователей:', error)
@@ -100,6 +111,7 @@ const loadReports = async () => {
   isLoading.value = true
   try {
     const response = await reportsAPI.getAll()
+    console.log(response.data)
     reports.value = response.data
   } catch (error) {
     console.error('Ошибка загрузки отчетов:', error)
@@ -112,7 +124,7 @@ const filteredUsers = computed(() => {
   if (!userSearch.value) return users.value
   const searchTerm = userSearch.value.toLowerCase()
   return users.value.filter(user => {
-    const userName = user.full_name || user.fullName || ''
+    const userName = getUserFullName(user) || ''
     return userName.toLowerCase().includes(searchTerm)
   })
 })
@@ -120,8 +132,12 @@ const filteredUsers = computed(() => {
 const selectUser = (user) => {
   selectedUser.value = user
   newReport.value.userId = user.id
-  userSearch.value = user.full_name || user.fullName
+  userSearch.value = getUserFullName(user)
   showDropdown.value = false
+}
+
+const getUserFullName = (user) => {
+  return `${user.last_name || ''} ${user.first_name || ''} ${user.middle_name || ''}`.trim()
 }
 
 const handleClickOutside = (event) => {
@@ -142,38 +158,17 @@ const generateReport = async () => {
     const reportData = {
       user_id: newReport.value.userId,
       year: newReport.value.year,
-      format: 'rtf',
-      type: 'annual_user'
+      format: 'rtf'
     }
     
-    await reportsAPI.generate(reportData)
+    const response = await reportsAPI.download_report_api(reportData)
     
-    newReport.value.userId = ''
-    newReport.value.year = ''
-    userSearch.value = ''
-    selectedUser.value = null
-    
-    await loadReports()
-    alert('Отчет успешно сгенерирован')
-    
-  } catch (error) {
-    console.error('Ошибка генерации отчета:', error)
-    alert('Не удалось сгенерировать отчет')
-  } finally {
-    isGenerating.value = false
-  }
-}
-
-const downloadReport = async (report) => {
-  isDownloading.value = true
-  try {
-    const response = await reportsAPI.download(report.id)
-    
-    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const blob = new Blob([response.data], { type: 'application/rtf' })
+    const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     
-    const fileName = `${report.name}.rtf` || `report_${report.id}.rtf`
+    const fileName = `report_${selectedUser.value.username}_${newReport.value.year}.rtf`
     link.setAttribute('download', fileName)
     
     document.body.appendChild(link)
@@ -181,11 +176,18 @@ const downloadReport = async (report) => {
     link.remove()
     window.URL.revokeObjectURL(url)
     
+    newReport.value.userId = ''
+    newReport.value.year = ''
+    userSearch.value = ''
+    selectedUser.value = null
+    
+    alert('Отчет успешно сгенерирован и скачан')
+    
   } catch (error) {
-    console.error('Ошибка скачивания отчета:', error)
-    alert('Не удалось скачать отчет')
+    console.error('Ошибка генерации отчета:', error)
+    alert('Не удалось сгенерировать отчет')
   } finally {
-    isDownloading.value = false
+    isGenerating.value = false
   }
 }
 
@@ -232,6 +234,7 @@ onUnmounted(() => {
   margin-right: 1rem;
   width: 100%;
   box-sizing: border-box;
+  max-height: 200px;
 }
 
 .searchable-select {

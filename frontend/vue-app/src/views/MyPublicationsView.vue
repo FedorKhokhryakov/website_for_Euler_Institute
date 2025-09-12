@@ -54,7 +54,7 @@
         <div v-if="publication.journal" class="publication-journal">
           {{ publication.journal }}
           <span v-if="publication.volume || publication.issue">
-            ({{ publication.volume }}{{ publication.issue ? '(' + publication.issue + ')' : '' }})
+            (Том: {{ publication.volume }}{{ publication.issue ? ', Номер: ' + publication.issue : '' }})
           </span>
         </div>
         

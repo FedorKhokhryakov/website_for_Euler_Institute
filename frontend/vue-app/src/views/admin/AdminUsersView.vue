@@ -24,7 +24,7 @@
         <tbody>
           <tr v-for="user in filteredUsers" :key="user.id">
             <td>{{ user.id }}</td>
-            <td>{{ user.fullName }}</td>
+            <td>{{ getUserFullName(user) }}</td>
             <td>{{ user.email }}</td>
             <td>{{ user.department }}</td>
             <td>{{ user.role }}</td>
@@ -68,6 +68,7 @@ const fetchUsers = async () => {
   error.value = ''
   try {
     const response = await usersAPI.getAll()
+    console.log(response.data)
     users.value = response.data
   } catch (err) {
     error.value = 'Ошибка загрузки пользователей'
@@ -126,7 +127,6 @@ th {
 }
 
 .actions {
-  display: flex;
   gap: 0.5rem;
 }
 

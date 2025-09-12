@@ -28,9 +28,9 @@ export const usersAPI = {
 }
 
 export const reportsAPI = {
-  generate: (reportData) => apiClient.post('/api/reports/', reportData),
+  //generate: (reportData) => apiClient.post('/api/reports/', reportData),
   getAll: () => apiClient.get('/api/reports/'),
-  download: (id) => apiClient.get(`/api/reports/${id}/download/`, {
+  download_report_api: (data) => apiClient.post(`/api/reports/download/`, data, {
     responseType: 'blob'
   })
 }
