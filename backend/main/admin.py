@@ -22,8 +22,8 @@ class PostAuthorInline(admin.TabularInline):
 
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
-    list_display = ['type', 'year', 'status', 'created_at']
-    list_filter = ['type', 'status', 'year']
+    list_display = ['type', 'created_at']
+    list_filter = ['type']
     search_fields = ['article_identification_number', 'comment']
     inlines = [PostAuthorInline]
 

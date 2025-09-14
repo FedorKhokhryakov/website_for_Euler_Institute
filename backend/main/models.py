@@ -62,43 +62,20 @@ class Post(models.Model):
         ('awards', 'Награда'),
     ]
 
-    STATUS_CHOICES = [
-        ('draft', 'Черновик'),
-        ('submitted', 'На рассмотрении'),
-        ('accepted', 'Принято'),
-        ('published', 'Опубликовано'),
-        ('rejected', 'Отклонено'),
-    ]
-
     created_by = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='posts',
-        verbose_name='Создатель публикации',
+        verbose_name='Создатель поста',
         null=True,
         blank=True
     )
 
-    type = models.CharField(max_length=20, choices=TYPE_CHOICES, verbose_name="Тип публикации")
     title = models.CharField(max_length=255, blank=True, verbose_name="Название")
-    tome = models.IntegerField(null=True, blank=True, verbose_name="Том")
-    number = models.IntegerField(null=True, blank=True, verbose_name="Номер")
-    article_identification_number = models.CharField(max_length=100, blank=True,
-                                                     verbose_name="Идентификационный номер статьи")
-    authors_string = models.CharField(max_length=255, blank=True, verbose_name="Авторы")
-    pages = models.CharField(max_length=100, null=True, blank=True, verbose_name="Страницы")
-    year = models.IntegerField(verbose_name="Год публикации")
-    language = models.CharField(max_length=50, default='Русский', verbose_name="Язык")
-    web_page = models.URLField(blank=True, verbose_name="Веб-страница")
-    comment = models.TextField(blank=True, verbose_name="Комментарий")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Статус")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
-    accepted_at = models.DateTimeField(null=True, blank=True, verbose_name="Принято")
-    received_date = models.DateField(null=True, blank=True, verbose_name="Дата получения")
-    decision_date = models.DateField(null=True, blank=True, verbose_name="Дата решения")
-    published_date = models.DateField(null=True, blank=True, verbose_name="Дата публикации")
-    journal_name = models.CharField(max_length=255, blank=True, verbose_name="Название журнала")
-    has_faculty_coauthors = models.BooleanField(default=False, verbose_name="Есть соавторы с факультета")
+    authors_string = models.CharField(max_length=255, blank=True, verbose_name="Авторы")
+    type = models.CharField(max_length=50, choices=TYPE_CHOICES, verbose_name="Тип поста")
+
 
     class Meta:
         verbose_name = "Публикация"
@@ -110,6 +87,110 @@ class Post(models.Model):
 
     def get_absolute_url(self):
         return reverse('post_detail', kwargs={'pk': self.pk})
+
+
+class Publication(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="publication")
+    journal = models.CharField(max_length=255)
+    year = models.PositiveIntegerField()
+
+    def __str__(self):
+        return f"Публикация: {self.post.title}"
+
+
+class Monograph(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="monograph")
+    publisher = models.CharField(max_length=255)
+    pages = models.PositiveIntegerField()
+
+    def __str__(self):
+        return f"Монография: {self.post.title}"
+
+
+class Presentation(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="Presentation")
+    conference = models.CharField(max_length=255)
+    city = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"Доклад: {self.post.title}"
+
+
+class Lecture(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="lecture")
+    course_name = models.CharField(max_length=255)
+    semester = models.CharField(max_length=50)
+
+    def __str__(self):
+        return f"Курс лекций: {self.post.title}"
+
+
+class Patent(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="patent")
+    number = models.CharField(max_length=50)
+    date_registered = models.DateField()
+
+    def __str__(self):
+        return f"Патент: {self.post.title}"
+
+
+class Supervision(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="supervision")
+    student_name = models.CharField(max_length=255)
+    topic = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"Руководство: {self.post.title}"
+
+
+class Editing(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="editing")
+    edition_name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"Редактирование: {self.post.title}"
+
+
+class EditorialBoard(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="editorial_board")
+    journal = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"Редколлегия: {self.post.title}"
+
+
+class OrgWork(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="org_work")
+    organization = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"Орг. работа: {self.post.title}"
+
+
+class Opposition(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="opposition")
+    thesis_title = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"Оппонирование: {self.post.title}"
+
+
+class Grant(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="grant")
+    fund_name = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    def __str__(self):
+        return f"Грант: {self.post.title}"
+
+
+class Award(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="award")
+    award_name = models.CharField(max_length=255)
+    year = models.PositiveIntegerField()
+
+    def __str__(self):
+        return f"Награда: {self.post.title}"
 
 
 class PostAuthor(models.Model):

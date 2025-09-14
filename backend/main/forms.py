@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import User, Post, PostAuthor
+from .models import User, Post, PostAuthor, Publication, Monograph, Lecture, Patent, Supervision, Editing, \
+    EditorialBoard, OrgWork, Opposition, Grant, Award
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -148,60 +149,120 @@ class PostForm(forms.ModelForm):
     authors = forms.ModelMultipleChoiceField(
         queryset=User.objects.all(),
         widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
-        required=True
+        required=True,
+        label="Авторы"
     )
+
+    journal = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    year = forms.IntegerField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+    publisher = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    pages = forms.IntegerField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+    course_name = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    semester = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
 
     class Meta:
         model = Post
-        fields = [
-            'type', 'tome', 'number', 'article_identification_number',
-            'pages', 'year', 'language', 'web_page', 'comment', 'authors'
-        ]
-        widgets = {
-            'type': forms.Select(attrs={'class': 'form-control'}),
-            'tome': forms.NumberInput(attrs={'class': 'form-control'}),
-            'number': forms.NumberInput(attrs={'class': 'form-control'}),
-            'article_identification_number': forms.TextInput(attrs={'class': 'form-control'}),
-            'pages': forms.NumberInput(attrs={'class': 'form-control'}),
-            'year': forms.NumberInput(attrs={'class': 'form-control'}),
-            'language': forms.TextInput(attrs={'class': 'form-control'}),
-            'web_page': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://...'}),
-            'comment': forms.Textarea(
-                attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Комментарии к публикации...'}),
-        }
-
-        labels = {
-            'type': 'Тип публикации',
-            'tome': 'Том',
-            'number': 'Номер',
-            'article_identification_number': 'Идентификационный номер статьи',
-            'pages': 'Количество страниц',
-            'year': 'Год публикации',
-            'language': 'Язык',
-            'web_page': 'Веб-страница',
-            'comment': 'Комментарий',
-            'authors': 'Авторы',
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['language'].initial = 'Русский'
+        fields = ['title', 'type', 'authors']
 
     def save(self, commit=True):
         post = super().save(commit=False)
-
         if commit:
             post.save()
             self.save_authors(post)
-
+            self.save_child(post)  # <-- добавляем дочерний объект
         return post
 
     def save_authors(self, post):
         PostAuthor.objects.filter(post=post).delete()
-
-        authors = self.cleaned_data['authors']
-        for order, author in enumerate(authors):
+        for order, author in enumerate(self.cleaned_data['authors']):
             PostAuthor.objects.create(post=post, user=author, order=order)
+
+    def save_child(self, post):
+        """Создаём дочерний объект в зависимости от типа поста"""
+        if post.type == 'publication':
+            Publication.objects.get_or_create(
+                post=post,
+                defaults={
+                    'journal': self.cleaned_data.get('journal', ''),
+                    'year': self.cleaned_data.get('year', 2000)
+                }
+            )
+        elif post.type == 'monograph':
+            Monograph.objects.get_or_create(
+                post=post,
+                defaults={
+                    'publisher': self.cleaned_data.get('publisher', ''),
+                    'pages': self.cleaned_data.get('pages', 1)
+                }
+            )
+        elif post.type == 'lectures':
+            Lecture.objects.get_or_create(
+                post=post,
+                defaults={
+                    'course_name': self.cleaned_data.get('course_name', ''),
+                    'semester': self.cleaned_data.get('semester', '')
+                }
+            )
+        elif post.type == 'patents':
+            Patent.objects.get_or_create(
+                post=post,
+                defaults={
+                    'number': self.cleaned_data.get('number', ''),
+                    'date_registered': self.cleaned_data.get('date_registered', None)
+                }
+            )
+        elif post.type == 'supervision':
+            Supervision.objects.get_or_create(
+                post=post,
+                defaults={
+                    'student_name': self.cleaned_data.get('student_name', ''),
+                    'topic': self.cleaned_data.get('topic', '')
+                }
+            )
+        elif post.type == 'editing':
+            Editing.objects.get_or_create(
+                post=post,
+                defaults={
+                    'edition_name': self.cleaned_data.get('edition_name', '')
+                }
+            )
+        elif post.type == 'editorial_board':
+            EditorialBoard.objects.get_or_create(
+                post=post,
+                defaults={
+                    'journal': self.cleaned_data.get('journal', '')
+                }
+            )
+        elif post.type == 'org_work':
+            OrgWork.objects.get_or_create(
+                post=post,
+                defaults={
+                    'organization': self.cleaned_data.get('organization', '')
+                }
+            )
+        elif post.type == 'opposition':
+            Opposition.objects.get_or_create(
+                post=post,
+                defaults={
+                    'thesis_title': self.cleaned_data.get('thesis_title', '')
+                }
+            )
+        elif post.type == 'grants':
+            Grant.objects.get_or_create(
+                post=post,
+                defaults={
+                    'fund_name': self.cleaned_data.get('fund_name', ''),
+                    'amount': self.cleaned_data.get('amount', 0)
+                }
+            )
+        elif post.type == 'awards':
+            Award.objects.get_or_create(
+                post=post,
+                defaults={
+                    'award_name': self.cleaned_data.get('award_name', ''),
+                    'year': self.cleaned_data.get('year', 2000)
+                }
+            )
 
 
 class SearchForm(forms.Form):
@@ -223,35 +284,31 @@ class SearchForm(forms.Form):
 
 
 class PostFilterForm(forms.Form):
-    TYPE_CHOICES = [
-        ('', 'Все типы'),
-        ('article', 'Статья'),
-        ('conference', 'Конференция'),
-        ('book', 'Книга'),
-        ('report', 'Отчет'),
-        ('other', 'Другое'),
-    ]
+    TYPE_CHOICES = [('', 'Все типы')] + [(t[0], t[1]) for t in Post.TYPE_CHOICES]
 
-    YEAR_CHOICES = [('', 'Все годы')] + [(year, str(year)) for year in range(2020, 2031)]
+    YEAR_CHOICES = [('', 'Все годы')] + [(year, str(year)) for year in range(2000, 2031)]
 
     type = forms.ChoiceField(
         choices=TYPE_CHOICES,
         required=False,
-        widget=forms.Select(attrs={'class': 'form-control'})
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label="Тип публикации"
     )
 
     year = forms.ChoiceField(
         choices=YEAR_CHOICES,
         required=False,
-        widget=forms.Select(attrs={'class': 'form-control'})
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label="Год публикации"
     )
 
     laboratory = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Фильтр по лаборатории...'
-        })
+            'placeholder': 'Фильтр по лаборатории автора...'
+        }),
+        label="Лаборатория"
     )
 
 
@@ -259,8 +316,12 @@ class PostFilterForm(forms.Form):
 class QuickPostEditForm(forms.ModelForm):
     class Meta:
         model = Post
-        fields = ['status', 'comment']
+        fields = ['title', 'type']
         widgets = {
-            'status': forms.Select(attrs={'class': 'form-control'}),
-            'comment': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'type': forms.Select(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'title': 'Название',
+            'type': 'Тип публикации',
         }
