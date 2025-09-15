@@ -17,9 +17,9 @@ export const authAPI = {
 
 export const publicationsAPI = {
   getAll: () => apiClient.get('/api/all_publications/'),
-  getUserAll: () => apiClient.get('/api/my_publications/'),
+  getUserAll: () => apiClient.get('/api/my_posts/'),
   getById: (id) => apiClient.get(`/api/publications/${id}/`),
-  create: (data) => apiClient.post('/api/publications/', data),
+  create: (data) => apiClient.post('/api/create_post/', data),
   checkOwner: (id) => apiClient.get(`/api/publications/${id}/check-owner/`),
 }
 

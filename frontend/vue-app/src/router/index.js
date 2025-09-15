@@ -7,7 +7,7 @@ import LoginView from "../views/LoginView.vue"
 import RegisterView from "../views/RegisterView.vue"
 import DashboardView from "../views/DashboardView.vue"
 import ScientificActivityView from '../views/ScientificActivityView.vue'
-import AddPublicationView from '../views/AddPublicationView.vue'
+import AddPostView from '../views/AddPostView.vue'
 import MyPublicationsView from '../views/MyPublicationsView.vue'
 import PublicationDetailedView from '../views/PublicationDetailedView.vue'
 import UserProfileView from '../views/UserProfileView.vue'
@@ -53,9 +53,9 @@ const routes = [
         component: ScientificActivityView
       },
       { 
-        path: "/add-publication", 
-        name: "AddPublication",
-        component: AddPublicationView
+        path: "/add-post", 
+        name: "AddPost",
+        component: AddPostView
       },
       { 
         path: "/my-publications", 

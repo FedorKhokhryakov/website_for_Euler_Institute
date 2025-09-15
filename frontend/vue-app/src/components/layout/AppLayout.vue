@@ -8,7 +8,7 @@
       <nav class="sidebar-nav">
         <router-link to="/dashboard" class="nav-link">Главная</router-link>
         <router-link to="/activity" class="nav-link">Научная деятельность</router-link>
-        <router-link to="/add-publication" class="nav-link">Добавить публикацию</router-link>
+        <router-link to="/add-post" class="nav-link">Добавить публикацию</router-link>
         <router-link to="/my-publications" class="nav-link">Мои публикации</router-link>
         <router-link 
             :to="userProfilePath" 

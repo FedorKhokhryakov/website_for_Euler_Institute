@@ -13,16 +13,16 @@
           <option value="">Все типы</option>
           <option value="publication">Публикация</option>
           <option value="monograph">Монография</option>
-          <option value="reports">Доклад</option>
-          <option value="lectures">Курс лекций</option>
-          <option value="patents">Патент</option>
+          <option value="presentation">Доклад</option>
+          <option value="lecture">Курс лекций</option>
+          <option value="patent">Патент</option>
           <option value="supervision">Научное руководство</option>
           <option value="editing">Редактирование</option>
           <option value="editorial_board">Ред. коллегия</option>
           <option value="org_work">Научно-орг. работа</option>
           <option value="opposition">Оппонирование</option>
-          <option value="grants">Грант</option>
-          <option value="awards">Награда</option>
+          <option value="grant">Грант</option>
+          <option value="award">Награда</option>
         </select>
       </div>
     </div>
@@ -44,26 +44,29 @@
       >
         <div class="publication-header">
           <span class="publication-type">{{ getTypeLabel(publication.type) }}</span>
-          <span class="publication-year">{{ publication.year }}</span>
+          <span class="publication-year">{{ publication.details.year }}</span>
         </div>
         
-        <h3 class="publication-title">{{ publication.title }}</h3>
+        <h3 class="publication-title">{{ publication.details.title }}</h3>
         
-        <p class="publication-authors">{{ publication.authors }}</p>
+        <p class="publication-authors">{{ publication.details.authors }}</p>
         
-        <div v-if="publication.journal" class="publication-journal">
-          {{ publication.journal }}
-          <span v-if="publication.volume || publication.issue">
-            (Том: {{ publication.volume }}{{ publication.issue ? ', Номер: ' + publication.issue : '' }})
+        <div v-if="publication.details.journal" class="publication-journal">
+          {{ publication.details.journal }}
+          <span v-if="publication.details.journal_tome">
+            Том: {{ publication.details.journal_tome }}
+          </span>
+          <span v-if="publication.details.journal_number">
+            Номер: {{ publication.details.journal_number }}
           </span>
         </div>
         
-        <div v-if="publication.pages" class="publication-pages">
-          Страницы: {{ publication.pages }}
+        <div v-if="publication.details.pages" class="publication-pages">
+          Страницы: {{ publication.details.pages }}
         </div>
         
         <div class="publication-footer">
-          <span class="publication-language">Язык: {{ getLanguageLabel(publication.language) }}</span>
+          <span class="publication-language">Язык: {{ getLanguageLabel(publication.details.language) }}</span>
         </div>
       </div>
     </div>
@@ -105,16 +108,16 @@ const itemsPerPage = 10
 const typeLabels = {
   publication: 'Публикация',
   monograph: 'Монография',
-  reports: 'Доклад',
-  lectures: 'Курс лекций',
-  patents: 'Патент',
+  presentation: 'Доклад',
+  lecture: 'Курс лекций',
+  patent: 'Патент',
   supervision: 'Научное руководство',
   editing: 'Редактирование',
   editorial_board: 'Ред. коллегия',
   org_work: 'Научно-орг. работа',
   opposition: 'Оппонирование',
-  grants: 'Грант',
-  awards: 'Награда'
+  grant: 'Грант',
+  award: 'Награда'
 }
 
 const languageLabels = {
@@ -135,8 +138,8 @@ const filteredPublications = computed(() => {
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
     filtered = filtered.filter(pub => 
-      pub.title.toLowerCase().includes(query) ||
-      pub.authors.toLowerCase().includes(query) ||
+      pub.details.title?.toLowerCase().includes(query) ||
+      pub.details.authors?.toLowerCase().includes(query) ||
       (pub.journal && pub.journal.toLowerCase().includes(query))
     );
   }
@@ -166,7 +169,7 @@ const loadPublications = async () => {
   loading.value = true;
   try {
     const response = await publicationsAPI.getUserAll()
-    console.log("Публикации: ", response.data)
+    console.log("Посты: ", response.data)
     publications.value = response.data;
   } catch (error) {
     console.error('Ошибка:', error);
@@ -174,83 +177,6 @@ const loadPublications = async () => {
     loading.value = false;
   }
 }
-
-/*const loadPublications = async () => {
-  loading.value = true;
-  try {
-    // Моковые данные для тестирования
-    publications.value = [
-      {
-        id: 1,
-        type: 'publication',
-        title: 'Исследование методов машинного обучения',
-        authors: 'Иванов И.И., Петров П.П.',
-        authorCount: 2,
-        journal: 'Журнал компьютерных наук',
-        volume: '15',
-        issue: '3',
-        pages: '123-145',
-        year: '2024',
-        language: 'russian',
-        facultyCoauthors: true,
-        receivedDate: '2024-01-15',
-        decisionDate: '2024-02-20',
-        publishedDate: '2024-03-10',
-        articleId: 'DOI:10.1234/abc123',
-        webpage: 'https://example.com/article1',
-        comment: 'Важное исследование в области ИИ'
-      },
-      {
-        id: 2,
-        type: 'monograph',
-        title: 'Современные подходы к анализу данных',
-        authors: 'Сидоров С.С., Козлов К.К., Новиков Н.Н.',
-        authorCount: 3,
-        journal: '',
-        volume: '',
-        issue: '',
-        pages: '256',
-        year: '2023',
-        language: 'english',
-        facultyCoauthors: false,
-        receivedDate: '',
-        decisionDate: '',
-        publishedDate: '2023-11-05',
-        articleId: '',
-        webpage: '',
-        comment: 'Монография по Big Data'
-      },
-      {
-        id: 3,
-        type: 'reports',
-        title: 'Доклад на конференции по веб-разработке',
-        authors: 'Алексеев А.А.',
-        authorCount: 1,
-        journal: 'Труды конференции WebDev 2024',
-        volume: '2',
-        issue: '1',
-        pages: '45-52',
-        year: '2024',
-        language: 'russian',
-        facultyCoauthors: true,
-        receivedDate: '2024-02-10',
-        decisionDate: '2024-02-28',
-        publishedDate: '2024-03-15',
-        articleId: 'CONF-2024-001',
-        webpage: 'https://conference.org/report123',
-        comment: ''
-      }
-    ];
-    
-    // Имитация задержки сети
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-  } catch (error) {
-    console.error('Ошибка:', error);
-  } finally {
-    loading.value = false;
-  }
-}*/
 
 const viewPublication = (id) => {
   router.push(`/publication/${id}`);
