@@ -8,12 +8,26 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .serializer import UserAuthSerializer, LoginSerializer, UserSerializer, OwnerCheckSerializer, \
-    PublicationCreateSerializer, PublicationSerializer, RegisterSerializer, UserListSerializer, ReportSerializer, \
-    ReportCreateSerializer
-from .models import User, Post, Report
-from .views import generate_user_report
+from .serializer import *
+from .models import *
 
+SERIALIZER_MAP = {
+    'publication': (Publication, PublicationSerializer),
+    'monograph': (Monograph, MonographSerializer),
+    'presentation': (Presentation, PresentationSerializer),
+    'lectures': (Lecture, LectureSerializer),
+    'patents': (Patent, PatentSerializer),
+    'supervision': (Supervision, SupervisionSerializer),
+    'editing': (Editing, EditingSerializer),
+    'editorial_board': (EditorialBoard, EditorialBoardSerializer),
+    'org_work': (OrgWork, OrgWorkSerializer),
+    'opposition': (Opposition, OppositionSerializer),
+    'grants': (Grant, GrantSerializer),
+    'awards': (Award, AwardSerializer),
+}
+
+def get_serializer_by_type(post_type):
+    return SERIALIZER_MAP.get(post_type)[1]
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -24,7 +38,7 @@ def login_view(request):
         user = serializer.validated_data['user']
         refresh = RefreshToken.for_user(user)
 
-        user_data = UserAuthSerializer(user).data
+        user_data = UserSerializer(user).data
 
         return Response({
             'token': str(refresh.access_token),
@@ -45,10 +59,33 @@ def get_current_user(request):
 #GET /api/my_publications/
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_user_publications(request):
-    publications = Post.objects.filter(created_by=request.user).order_by('-created_at')
-    serializer = PublicationSerializer(publications, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+def get_user_posts(request):
+    posts = Post.objects.filter(authors__user=request.user).select_related(
+        'publication', 'monograph', 'presentation', 'lecture', 'patent',
+        'supervision', 'editing', 'editorial_board', 'org_work',
+        'opposition', 'grant', 'award'
+    ).prefetch_related('authors')
+    
+    result = []
+    
+    for post in posts:
+        post_data = PostSerializer(post).data
+        
+        detailed_data = None
+        model_class, serializer_class = SERIALIZER_MAP[post.post_type]
+        related_name = post.post_type
+        if hasattr(post, related_name):
+            detailed_obj = getattr(post, related_name)
+            detailed_data = serializer_class(detailed_obj).data
+        
+        result.append({
+            'post': post_data,
+            'details': detailed_data,
+            'type': post.post_type
+        })
+    
+    return Response(result, status=status.HTTP_200_OK)
+
 
 #GET /api/all_publications/
 @api_view(['GET'])
@@ -68,22 +105,44 @@ def get_publication_detail(request, id):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-# POST /api/publications/
+# POST /api/create_post/
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def create_publication(request):
+def create_post(request):
     data = request.data.copy()
 
-    serializer = PublicationCreateSerializer(data=data, context={'request':request})
+    if 'post' not in data or 'post_type' not in data['post']:
+        return Response(
+            {'error': 'Missing required fields: post and post.type'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
+    post_type = data['post'].get('post_type')
+
+    serializer_class = get_serializer_by_type(post_type)
+    if not serializer_class:
+        return Response(
+            {'error': f'Invalid post type: {post_type}'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    serializer = serializer_class(data=data, context={'request': request})
+    
     if serializer.is_valid():
-        publication = serializer.save()
-
-        return Response({
-            'id': publication.id,
-            'message': 'Публикация успешно создана'
-        }, status=status.HTTP_201_CREATED)
-
+        try:
+            post_instance = serializer.save()
+            
+            return Response({
+                'id': post_instance.id,
+                'message': f'{post_type.capitalize()} успешно создан'
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Error saving post: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
