@@ -1,7 +1,9 @@
 import os
 
+from datetime import datetime
 from django.http import HttpResponse, FileResponse
 from django.shortcuts import get_object_or_404
+from django.db.models import Exists, OuterRef
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -10,11 +12,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializer import *
 from .models import *
+from .utils import *
 
 SERIALIZER_MAP = {
-    'publication': (Publication, PublicationSerializer),
+    'publication': (Publication, PublicationReadSerializer),
     'monograph': (Monograph, MonographSerializer),
-    'presentation': (Presentation, PresentationSerializer),
+    'presentation': (Presentation, PresentationReadSerializer),
     'lectures': (Lecture, LectureSerializer),
     'patents': (Patent, PatentSerializer),
     'supervision': (Supervision, SupervisionSerializer),
@@ -48,12 +51,27 @@ def login_view(request):
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
+# get_user_info
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_current_user(request):
-    serializer = UserSerializer(request.user)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+def get_user_info(request):
+    try:
+        user = request.user
+        user_info_data = UserInfoSerializer(user).data
+        if 'roles' in user_info_data:
+            del user_info_data['roles']
+
+        response_data = {
+            'user_info': user_info_data,
+            'roles': [role.name for role in user.roles.all()]
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при получении информации о пользователе',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 #GET /api/my_publications/
@@ -92,59 +110,459 @@ def get_user_posts(request):
 @permission_classes([IsAuthenticated])
 def get_all_publications(request):
     publications = Post.objects.order_by('-created_at')
-    serializer = PublicationSerializer(publications, many=True)
+    serializer = PublicationReadSerializer(publications, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-# GET /api/publications/{id}/
+# GET /api/get_post_information/{id}/
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_publication_detail(request, id):
-    publication = get_object_or_404(Post, id=id)
-    serializer = PublicationSerializer(publication)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+def get_post_information(request, id):
+    try:
+        user = request.user
+        post_id = int(id)
+
+        post = get_object_or_404(
+            Post.objects.select_related('publication', 'presentation')
+            .prefetch_related('publication__external_authors'),
+            id=post_id
+        )
+
+        if not is_user_has_access_to_post(user, post):
+            return Response({
+                'error': 'Доступ запрещен. У вас нет прав для просмотра этого поста.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = PostWithDetailsSerializer({
+            'post': post,
+            'details': get_post_details(post)
+        })
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный ID поста'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при получении информации о посте',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # POST /api/create_post/
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_post(request):
-    data = request.data.copy()
+    try:
+        data = request.data.copy()
 
-    if 'post' not in data or 'post_type' not in data['post']:
-        return Response(
-            {'error': 'Missing required fields: post and post.type'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    post_type = data['post'].get('post_type')
-
-    serializer_class = get_serializer_by_type(post_type)
-    if not serializer_class:
-        return Response(
-            {'error': f'Invalid post type: {post_type}'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    serializer = serializer_class(data=data, context={'request': request})
-    
-    if serializer.is_valid():
-        try:
-            post_instance = serializer.save()
-            
+        if 'post' not in data or 'type' not in data['post']:
             return Response({
-                'id': post_instance.id,
-                'message': f'{post_type.capitalize()} успешно создан'
-            }, status=status.HTTP_201_CREATED)
-            
-        except Exception as e:
-            return Response(
-                {'error': f'Error saving post: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                'error': 'Отсутствуют обязательные поля: post и post.type'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
+        post_type = data['post']['type']
+
+        if post_type not in ['publication', 'presentation']:
+            return Response({
+                'error': f'Неподдерживаемый тип поста: {post_type}. Допустимые типы: publication, presentation'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        validation_errors = validate_post_data(post_type, data)
+        if validation_errors:
+            return Response({
+                'error': 'Ошибки валидации',
+                'details': validation_errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+        serializer = PostWithDetailsCreateSerializer(
+            data=data,
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            post = serializer.save()
+
+            return Response({
+                'id': post.id,
+                'message': f'{post_type.capitalize()} успешно создан',
+                'type': post_type
+            }, status=status.HTTP_201_CREATED)
+        else:
+            return Response({
+                'error': 'Ошибки валидации данных',
+                'details': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при создании поста',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+#PUT /api/update_post/{id}
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_post(request, id):
+    try:
+        user = request.user
+        post_id = int(id)
+
+        post = get_object_or_404(
+            Post.objects.select_related('publication', 'presentation')
+            .prefetch_related('publication__external_authors'),
+            id=post_id
+        )
+
+        if not post.authors.filter(user=user).exists() and not is_admin_user(user):
+            return Response({
+                'error': 'Доступ запрещен. Вы не имеете достаточно прав для изменения этого поста.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        data = request.data
+
+        if 'post' not in data:
+            return Response({
+                'error': 'Отсутствует обязательный раздел "post"'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        post_serializer = PostCreateSerializer(post, data=data['post'], partial=False)
+        if not post_serializer.is_valid():
+            return Response({
+                'error': 'Ошибки валидации данных поста',
+                'details': post_serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        post_serializer.save()
+
+        details_data = data.get('details', {})
+        update_errors = update_post_details(post, details_data)
+
+        if update_errors:
+            return Response({
+                'error': 'Ошибки при обновлении деталей поста',
+                'details': update_errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            'id': post.id,
+            'message': 'Пост успешно обновлен',
+            'type': post.type
+        }, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный ID поста'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при обновлении поста',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#DELETE /api/delete_post/{id}
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_post(request, id):
+    try:
+        user = request.user
+        post_id = int(id)
+
+        post = get_object_or_404(Post, id=post_id)
+
+        if not post.authors.filter(user=user).exists() and not is_admin_user(user):
+            return Response({
+                'error': 'Доступ запрещен. Вы не являетесь автором этого поста.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        post_type = post.type
+        post_id = post.id
+
+        post.delete()
+
+        return Response({
+            'message': f'Пост {post_id} типа "{post_type}" успешно удален'
+        }, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный ID поста'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при удалении поста',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# PUT /api/update_user/{id}
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_user(request, id):
+    try:
+        current_user = request.user
+        target_user_id = int(id)
+
+        target_user = get_object_or_404(User, id=target_user_id)
+
+        if not have_enough_rights(current_user, target_user):
+            return Response({
+                'error': 'Доступ запрещен. Недостаточно прав для обновления профиля.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        data = request.data
+
+        serializer = UserUpdateSerializer(
+            target_user,
+            data=data,
+            partial=True
+        )
+
+        if serializer.is_valid():
+            updated_user = serializer.save()
+
+            return Response({
+                'message': 'Данные пользователя успешно обновлены',
+                'user': UserSerializer(updated_user).data
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'error': 'Ошибки валидации данных',
+                'details': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный ID пользователя'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при обновлении пользователя',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#DELETE /api/delete_user/{id}
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_user(request, id):
+    try:
+        current_user = request.user
+        target_user_id = int(id)
+
+        if current_user.id == target_user_id:
+            return Response({
+                'error': 'Нельзя удалить собственный аккаунт'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        target_user = get_object_or_404(User, id=target_user_id)
+
+        can_delete, error_message = can_user_delete_user(current_user, target_user)
+        if not can_delete:
+            return Response({
+                'error': error_message
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        user_info = {
+            'id': target_user.id,
+            'username': target_user.username,
+            'email': target_user.email,
+            'full_name': target_user.get_full_name(),
+            'group': target_user.group
+        }
+
+        target_user.delete()
+
+        return Response({
+            'message': 'Пользователь успешно удален',
+            'deleted_user': user_info
+        }, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный ID пользователя'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при удалении пользователя',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# GET /api/get_all_users/
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_users(request):
+    try:
+        current_user = request.user
+
+        # if not is_admin_user(current_user):
+        #     return Response({
+        #         'error': 'Доступ запрещен. Требуются права администратора.'
+        #     }, status=status.HTTP_403_FORBIDDEN)
+
+        admin_role_exists = UserRole.objects.filter(
+            user_id=OuterRef('id'),
+            role__name__in=['MasterAdmin', 'SPbUAdmin', 'POMIAdmin']
+        )
+        regular_users = User.objects.annotate(
+            has_admin_role=Exists(admin_role_exists)
+        ).filter(has_admin_role=False).prefetch_related('roles').order_by('second_name_rus', 'first_name_rus')
+
+        group_filter = request.GET.get('group')
+        if group_filter in ['SPbU', 'POMI']:
+            regular_users = regular_users.filter(group=group_filter)
+
+        serializer = UserInfoSerializer(regular_users, many=True)
+
+        return Response({
+            'users': serializer.data
+        }, status=200)
+
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при получении списка пользователей',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+#POST /api/submit_science_report_on_checking/{year}/
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_science_report_on_checking(request, year):
+    try:
+        user = request.user
+        year = int(year)
+
+        # if not is_admin_user(user):
+        #  return Response({
+        #          'error': 'Доступ запрещен. Требуются права администратора.'
+        #      }, status=status.HTTP_403_FORBIDDEN)
+
+        current_year = datetime.now().year
+        if year < 2000 or year > current_year + 1:
+            return Response({
+                'error': f'Некорректный год. Допустимый диапазон: 2000-{current_year + 1}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ScienceReportSubmitSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'error': 'Ошибки валидации данных',
+                'details': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        report_text = serializer.validated_data['year_report']
+
+        try:
+            user_report = UserReport.objects.select_related('report').get(
+                user=user,
+                report__year=year
+            )
+            year_report = user_report.report
+        except UserReport.DoesNotExist:
+            year_report = YearReport.objects.create(
+                year=year,
+                report_text=report_text,
+                status='on_checking'
+            )
+            UserReport.objects.create(user=user, report=year_report)
+        else:
+            year_report.report_text = report_text
+            year_report.status = 'on_checking'
+            year_report.save()
+
+        return Response({
+            'message': f'Научный отчет за {year} год отправлен на проверку',
+            #'report_id': year_report.id,
+            #'status': year_report.status,
+            #'year': year_report.year,
+            #'updated_at': year_report.updated_at.isoformat() if hasattr(year_report, 'updated_at') else None
+        }, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный формат года'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при отправке отчета на проверку',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#POST /api/set_science_report_new_status/{user_id}/{year}/
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def set_science_report_new_status(request, user_id, year):
+    try:
+        admin_user = request.user
+        target_user_id = int(user_id)
+        year = int(year)
+
+        target_user = get_object_or_404(User, id=target_user_id)
+
+        # can_update = (is_master_admin(admin_user) or is_group_admin(admin_user, target_user.group))
+        # if not can_update:
+        #     return Response({
+        #         'error': "Недостаточно прав"
+        #     }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = ScienceReportStatusUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'error': 'Ошибки валидации данных',
+                'details': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        new_status = serializer.validated_data['new_status']
+        admin_comment = serializer.validated_data.get('admin_comment', '')
+
+        try:
+            user_report = UserReport.objects.select_related('report').get(
+                user=target_user,
+                report__year=year
+            )
+            year_report = user_report.report
+        except UserReport.DoesNotExist:
+            return Response({
+                'error': f'Отчет пользователя за {year} год не найден'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        if year_report.status != 'on_checking':
+            return Response({
+                'error': f'Отчет должен быть в статусе "on_checking". Текущий статус: {year_report.status}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        year_report.status = new_status
+        year_report.admin_comment = admin_comment
+        year_report.save()
+
+        return Response({
+            'message': f'Статус отчета пользователя {target_user.username} за {year} год изменен',
+            'report_id': year_report.id,
+            'user_id': target_user.id,
+            'username': target_user.username,
+            'year': year,
+            'new_status': new_status,
+            'previous_status': 'on_checking',
+            'admin_comment': admin_comment,
+            'updated_by': admin_user.username
+        }, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный формат ID пользователя или года'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при изменении статуса отчета',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+####################################################################################
 
 #GET /api/publications/{id}/check-owner/
 @api_view(['GET'])
@@ -171,6 +589,8 @@ def get_user_profile(request, id):
     serializer = UserSerializer(user)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
+#########################################################################################
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -186,9 +606,10 @@ def register_user(request):
                 "id": user.id,
                 "username": user.username,
                 "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "middle_name": user.middle_name,
+                "first_name_rus": user.first_name_rus,
+                "second_name_rus": user.second_name_rus,
+                "middle_name_rus": user.middle_name_rus,
+                "group": user.group,
                 "message": "User created successfully"
             }, status=status.HTTP_201_CREATED)
 
@@ -256,39 +677,90 @@ def users_request(request):
 
     return Response(data, status=status.HTTP_200_OK)
 
-@api_view(['POST'])
+#/get_year_report
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def create_report(request):
-    """
-    Генерация отчета
-    POST /api/reports/
-    """
-    if not request.user.is_staff:
-        return Response({
-            "error": "Доступ запрещен. Требуются права администратора."
-        }, status=status.HTTP_403_FORBIDDEN)
+def get_year_report(request, year):
+    try:
+        user = request.user
+        year = int(year)
 
-    serializer = ReportCreateSerializer(data=request.data, context={'request': request})
-
-    if serializer.is_valid():
-        try:
-            report = serializer.save()
-
-            response_serializer = ReportSerializer(report)
-
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
+        from datetime import datetime
+        current_year = datetime.now().year
+        if year < 2000 or year > current_year + 1:
             return Response({
-                "error": "Ошибка при создании отчета",
-                "details": str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                'error': f'Некорректный год. Допустимый диапазон: 2000-{current_year + 1}'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-    else:
+        from django.db.models import Q
+
+        user_posts = Post.objects.filter(
+            authors__user=user
+        ).filter(
+            Q(publication__preprint_date__year=year) |
+            Q(publication__submission_date__year=year) |
+            Q(publication__acceptance_date__year=year) |
+            Q(publication__publication_date__year=year) |
+            Q(presentation__presentation_date__year=year)
+        ).select_related(
+            'publication', 'presentation'
+        ).prefetch_related(
+            'publication__external_authors'
+        ).distinct().order_by('-created_at')
+
+        posts_data = []
+        for post in user_posts:
+            post_data = {
+                'post': {
+                    'id': post.id,
+                    'type': post.type,
+                    'comment': post.comment,
+                    'created_at': post.created_at,
+                    'updated_at': post.updated_at
+                },
+                'details': get_post_details(post)
+            }
+            posts_data.append(post_data)
+
+        try:
+            user_report = UserReport.objects.select_related('report').get(
+                user=user,
+                report__year=year
+            )
+            year_report = user_report.report
+        except UserReport.DoesNotExist:
+            year_report = YearReport.objects.create(
+                year=year,
+                report_text=f"Отчет за {year} год",
+                status='idle'
+            )
+            UserReport.objects.create(user=user, report=year_report)
+
+        report_data = {
+            'id': year_report.id,
+            'year': year_report.year,
+            'report_text': year_report.report_text,
+            'status': year_report.status,
+            'admin_comment': year_report.admin_comment
+            #'created_at': year_report.created_at,
+            #'updated_at': year_report.updated_at
+        }
+        response_data = {
+            'posts': posts_data,
+            'year_report': report_data
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    except ValueError:
         return Response({
-            "error": "Неверные данные запроса",
-            "details": serializer.errors
+            'error': 'Некорректный формат года'
         }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при получении годового отчета',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -340,7 +812,6 @@ def download_report(request, id):
 @permission_classes([IsAuthenticated])
 def list_reports(request):
     """
-    Получение списка отчетов пользователя
     GET /api/reports/
     """
     if request.user.is_staff:
@@ -391,7 +862,7 @@ def download_report_api(request):
         for post in posts:
             grouped[post.get_type_display()].append(post)
 
-        report_text = f"# Отчёт по публикациям пользователя {user.last_name} {user.first_name}{ (" " + user.middle_name) or '' } за {year} год\n\n"
+        report_text = f"# Отчёт по публикациям пользователя {user.last_name} {user.first_name}{ (' ' + user.middle_name) or '' } за {year} год\n\n"
         for type_name, items in grouped.items():
             report_text += f"## {type_name}\n"
             for p in items:
