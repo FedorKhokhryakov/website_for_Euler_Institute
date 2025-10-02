@@ -86,8 +86,14 @@ class PostAuthor(models.Model):
 
 
 class Publication(models.Model):
+    class Status(models.TextChoices):
+        PREPRINT = "preprint", "Препринт"
+        SUBMITTED = "submitted", "Отправлено"
+        ACCEPTED = "accepted", "Принято"
+        PUBLISHED = "published", "Опубликовано"
+
     post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name='publication')
-    current_status = models.CharField(max_length=20)
+    current_status = models.CharField(max_length=20, choices=Status.choices, default=Status.PREPRINT)
 
     title = models.CharField(max_length=255)
     language = models.CharField(max_length=50)

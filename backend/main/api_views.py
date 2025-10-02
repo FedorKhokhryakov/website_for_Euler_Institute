@@ -1,6 +1,5 @@
 import os
 
-from datetime import datetime
 from django.http import HttpResponse, FileResponse
 from django.shortcuts import get_object_or_404
 from django.db.models import Exists, OuterRef
@@ -186,6 +185,28 @@ def create_post(request):
         if serializer.is_valid():
             post = serializer.save()
 
+            details = data.get('details', {})
+            external_authors = details.get('external_authors_list', [])
+            internal_authors = details.get('internal_authors_list', [])
+
+            for idx, ext_author in enumerate(external_authors):
+                PostAuthor.objects.create(
+                    post=post,
+                    external_author=ext_author,
+                    order=idx
+                )
+
+            for idx, user_id in enumerate(internal_authors, start=len(external_authors)):
+                try:
+                    user = User.objects.get(id=user_id)
+                    PostAuthor.objects.create(
+                        post=post,
+                        user=user,
+                        order=idx
+                    )
+                except User.DoesNotExist:
+                    continue
+
             return Response({
                 'id': post.id,
                 'message': f'{post_type.capitalize()} успешно создан',
@@ -241,6 +262,29 @@ def update_post(request, id):
 
         details_data = data.get('details', {})
         update_errors = update_post_details(post, details_data)
+
+        external_authors = details_data.get('external_authors_list', [])
+        internal_authors = details_data.get('internal_authors_list', [])
+
+        PostAuthor.objects.filter(post=post).delete()
+
+        for idx, ext_author in enumerate(external_authors):
+            PostAuthor.objects.create(
+                post=post,
+                external_author=ext_author,
+                order=idx
+            )
+
+        for idx, user_id in enumerate(internal_authors, start=len(external_authors)):
+            try:
+                user_obj = User.objects.get(id=user_id)
+                PostAuthor.objects.create(
+                    post=post,
+                    user=user_obj,
+                    order=idx
+                )
+            except User.DoesNotExist:
+                continue
 
         if update_errors:
             return Response({
@@ -921,5 +965,67 @@ def download_report_api(request):
     except Exception as e:
         return Response({
             "error": "Ошибка при генерации RTF файла",
+            "details": str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# POST /api/get_db_info/
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def get_db_info(request):
+    try:
+        data = request.data
+        start_date, end_date = get_period(data)
+
+        user_type = data.get("user_type", "all")
+        user_id = data.get("user_id")
+
+        users = get_target_users(user_type, user_id)
+
+        include_publications = data.get("publications", False)
+        include_presentations = data.get("presentations", False)
+        only_published = data.get("only_printed_publications", False)
+        include_science_reports = data.get("science_reports", False)
+
+        rtf_lines = []
+
+        for user in users:
+            rtf_lines.append(r"{\b Пользователь: " + (user.get_full_name() or user.username) + r"}\line")
+
+            if include_publications:
+                publications = Publication.objects.filter(post__authors__user=user).distinct()
+                for pub in publications:
+                    status_on_date = get_publication_status_on_date(pub, end_date)
+                    if not status_on_date:
+                        continue
+                    if only_published and status_on_date != "published":
+                        continue
+
+                    line = format_publication_for_rtf(pub, end_date)
+                    if line:
+                        rtf_lines.append(line + r"\line")
+
+            if include_presentations:
+                presentations = Presentation.objects.filter(post__authors__user=user).distinct()
+                for pres in presentations:
+                    pres_date = pres.presentation_date
+                    if pres_date and start_date <= pres_date <= end_date:
+                        title = pres.title or "Без названия"
+                        place = pres.presentation_place or ""
+                        line = f"{title} // {place} - {pres_date.isoformat()}"
+                        rtf_lines.append(line + r"\line")
+
+            if include_science_reports and data.get("load_type") == "yearly":
+                rtf_lines.append(f"Научный отчет пользователя {user.get_full_name() or user.username}\line")
+
+            rtf_lines.append(r"\line")
+
+        rtf_text = r"{\rtf1\ansi\n" + "\n".join(rtf_lines) + "\n}"
+
+        return Response({"rtf_text": rtf_text})
+
+    except Exception as e:
+        return Response({
+            "error": "Ошибка при выгрузке данных",
             "details": str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
