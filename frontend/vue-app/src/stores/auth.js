@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { authAPI } from '../services/api.js'
+import { authAPI, usersAPI } from '../services/api.js'
 import axios from 'axios'
 import { setAuthToken } from '../services/axiosConfig.js'
 
@@ -12,6 +12,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value)
 
+  const isAdmin = computed(() => {
+    if (!user.value) return false
+    const adminRoles = ['MasterAdmin', 'AdminSPbU', 'AdminPOMI']
+    return user.value.roles?.some(role => adminRoles.includes(role)) || false
+  })
+
   const login = async (credentials) => {
     isLoading.value = true
     try {
@@ -20,48 +26,28 @@ export const useAuthStore = defineStore('auth', () => {
 
       console.log('Login response:', response.data)
       
-      const { token: authToken, user: userData } = response.data
+      const { token: authToken, user_info, roles } = response.data
       
-      user.value = userData
+      user.value = {
+        ...user_info,
+        roles: roles
+      }
       token.value = authToken
       
       localStorage.setItem('auth_token', authToken)
-      localStorage.setItem('user_data', JSON.stringify(userData))
+      localStorage.setItem('user_data', JSON.stringify(user.value))
       
       axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`
       
       return response.data
     } catch (error) {
-      if (error.response?.status === 401) {
-        throw new Error('Неверный логин или пароль')
-      } else if (error.response?.status === 400) {
-        throw new Error('Некорректные данные')
-      } else {
-        throw new Error('Ошибка сервера. Попробуйте позже.')
+      console.error('Ошибка инициализации:', error)
+      console.error('Статус ошибки:', error.response?.status)
+      console.error('Данные ошибки:', error.response?.data)
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        logout()
       }
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  const register = async (userData) => {
-    isLoading.value = true
-    
-    try {
-      const response = await authAPI.register(userData)
-      
-      if (response.data) {
-        return { 
-          success: true, 
-          message: 'Регистрация успешна',
-          user: response.data
-        }
-      }
-      
-      return { success: true, message: 'Регистрация успешна' }
-      
-    } catch (error) {
-      throw error
     } finally {
       isLoading.value = false
     }
@@ -75,15 +61,18 @@ export const useAuthStore = defineStore('auth', () => {
     
     if (savedToken) {
       try {
-
         setAuthToken(savedToken)
 
-        const response = await authAPI.getUserProfile()
-        user.value = response.data
+        const response = await usersAPI.getUserInfo()
+        user.value = {
+          ...response.data.user_info,
+          roles: response.data.roles
+        }
         token.value = savedToken
         
-        console.log('Успешная инициализация, пользователь:', response.data)
-        localStorage.setItem('user_data', JSON.stringify(response.data))
+        console.log('Успешная инициализация, пользователь:', user.value)
+        console.log('Is admin:', isAdmin.value)
+        localStorage.setItem('user_data', JSON.stringify(user.value))
       } catch (error) {
         console.error('Ошибка инициализации:', error)
         console.error('Статус ошибки:', error.response?.status)
@@ -114,7 +103,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading,
     isAuthenticated,
     isInitialized,
-    register,
+    isAdmin,
     login,
     logout,
     initialize

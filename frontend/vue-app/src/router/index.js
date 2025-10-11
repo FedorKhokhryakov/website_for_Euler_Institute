@@ -6,11 +6,9 @@ import AppLayout from "../components/layout/AppLayout.vue"
 import LoginView from "../views/LoginView.vue"
 import RegisterView from "../views/RegisterView.vue"
 import DashboardView from "../views/DashboardView.vue"
-import ScientificActivityView from '../views/ScientificActivityView.vue'
-import AddPostView from '../views/AddPostView.vue'
-import MyPublicationsView from '../views/MyPublicationsView.vue'
-import PublicationDetailedView from '../views/PublicationDetailedView.vue'
 import UserProfileView from '../views/UserProfileView.vue'
+import YearReportView from '../views/YearReportView.vue'
+import PostFormView from '../views/PostFormView.vue'
 
 import AdminDashboardView from '../views/admin/AdminDashboardView.vue'
 import AdminUsersView from '../views/admin/AdminUsersView.vue'
@@ -47,25 +45,22 @@ const routes = [
         name: "Dashboard",
         component: DashboardView
       },
-      { 
-        path: "/activity", 
-        name: "ScientificActivity",
-        component: ScientificActivityView
-      },
-      { 
-        path: "/add-post", 
-        name: "AddPost",
-        component: AddPostView
-      },
-      { 
-        path: "/my-publications", 
-        name: "MyPublications",
-        component: MyPublicationsView
+      {
+        path: "/year_report/:year",
+        name: "YearReport",
+        component: YearReportView
       },
       {
-        path:"/publication/:id",
-        name: "PublicationDetail",
-        component: PublicationDetailedView
+        path: "/posts/create",
+        name: "CreatePost",
+        component: PostFormView,
+        props: { mode: 'create' }
+      },
+      {
+        path: "/posts/edit/:id",
+        name: "EditPost",
+        component: PostFormView,
+        props: { mode: 'edit' }
       },
       {
         path: '/user/:id/profile',
@@ -80,24 +75,14 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true },
     children: [
       { 
-        path: "", 
-        name: "AdminDashboard",
-        component: AdminDashboardView
+        path: "generate-report", 
+        name: "AdminGenerateReport",
+        component: AdminReportsView
       },
       { 
-        path: "users", 
+        path: "add-users", 
         name: "AdminUsers",
         component: AdminUsersView
-      },
-      { 
-        path: "publications", 
-        name: "AdminPublications",
-        component: AdminPublicationsView
-      },
-      { 
-        path: "reports", 
-        name: "AdminReports",
-        component: AdminReportsView
       }
     ]
   },
@@ -123,7 +108,7 @@ router.beforeEach(async (to, from, next) => {
   }
   
   const isAuthenticated = authStore.isAuthenticated
-  const isAdmin = authStore.user?.is_admin || authStore.user?.role === 'admin'
+  const isAdmin = authStore.isAdmin
   
   if (to.meta.requiresAuth && !isAuthenticated) {
     next("/login")

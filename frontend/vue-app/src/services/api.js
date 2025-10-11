@@ -1,37 +1,28 @@
-import apiClient from './axiosConfig' // Импортируем настроенный клиент
-
-const API_BASE_URL = 'http://127.0.0.1:8000'
+import apiClient from './axiosConfig'
 
 export const authAPI = {
   login: (credentials) => apiClient.post('/api/auth/login/', credentials),
-  register: (userData) => apiClient.post('/api/auth/register/', {
-    username: userData.username,
-    email: userData.email,
-    password: userData.password,
-    first_name: userData.first_name,
-    last_name: userData.last_name,
-    middle_name: userData.middle_name || ''
-  }),
-  getUserProfile: () => apiClient.get('/api/auth/user/'),
 }
 
 export const publicationsAPI = {
-  getAll: () => apiClient.get('/api/all_publications/'),
-  getUserAll: () => apiClient.get('/api/my_posts/'),
-  getById: (id) => apiClient.get(`/api/publications/${id}/`),
-  create: (data) => apiClient.post('/api/create_post/', data),
-  checkOwner: (id) => apiClient.get(`/api/publications/${id}/check-owner/`),
+  getYearReport: (year) => apiClient.get(`/api/get_year_report/${year}/`),
+  createPost: (data) => apiClient.post('/api/create_post/', data),
+  getPostInformation: (post_id) => apiClient.get(`/api/get_post_information/${post_id}/`),
+  updatePost: (id, data) => apiClient.put(`/api/update_post/${id}/`, data),
+  deletePost: (id) => apiClient.delete(`/api/delete_post/${id}/`),
+
+  getReportOnChecking: (year, data) => apiClient.post(`/api/get_science_report_on_checking/${year}/`, data),
 }
 
 export const usersAPI = {
-  getById: (id) => apiClient.get(`/api/users/${id}/`),
-  getAll: () => apiClient.get('/api/users/')
+  getUserInfo: () => apiClient.get('/api/get_user_info/'),
+  updateUser: (id, data) => apiClient.put(`/api/update_user/${id}/`, data),
+  deleteUser: (id) => apiClient.delete(`/api/delete_user/${id}/`),
+  getAllUsers: () => apiClient.get(`/api/get_all_users/`),
 }
 
-export const reportsAPI = {
-  //generate: (reportData) => apiClient.post('/api/reports/', reportData),
-  getAll: () => apiClient.get('/api/reports/'),
-  download_report_api: (data) => apiClient.post(`/api/reports/download/`, data, {
-    responseType: 'blob'
-  })
+export const adminAPI = {
+  setReportNewStatus: (user_id, year, data) => apiClient.post(`/api/set_science_report_new_status/${user_id}/${year}/`, data),
+  getDBInfo: (data) => apiClient.post('/api/get_db_info/', data),
+  getDBInfoBlob: (data) => apiClient.post('/api/get_db_info/', data, { responseType: 'blob' }),
 }
