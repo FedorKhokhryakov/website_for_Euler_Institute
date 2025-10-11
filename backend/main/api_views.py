@@ -990,7 +990,6 @@ def get_db_info(request):
 
         rtf_lines = []
 
-<<<<<<< HEAD
         def escape_rtf(text):
             if not text:
                 return ""
@@ -1016,10 +1015,6 @@ def get_db_info(request):
         for user in users:
             full_name = get_full_name(user)
             rtf_lines.append(r"{\b " + escape_rtf("Пользователь: ") + escape_rtf(full_name) + r"}\line")
-=======
-        for user in users:
-            rtf_lines.append(r"{\b Пользователь: " + (user.get_full_name() or user.username) + r"}\line")
->>>>>>> 278c24aaeb6dfb613f223a582eb43ad85876d2b8
 
             if include_publications:
                 publications = Publication.objects.filter(post__authors__user=user).distinct()
@@ -1032,19 +1027,14 @@ def get_db_info(request):
 
                     line = format_publication_for_rtf(pub, end_date)
                     if line:
-<<<<<<< HEAD
                         escaped_line = escape_rtf(line)
                         rtf_lines.append(escaped_line + r"\line")
-=======
-                        rtf_lines.append(line + r"\line")
->>>>>>> 278c24aaeb6dfb613f223a582eb43ad85876d2b8
 
             if include_presentations:
                 presentations = Presentation.objects.filter(post__authors__user=user).distinct()
                 for pres in presentations:
                     pres_date = pres.presentation_date
                     if pres_date and start_date <= pres_date <= end_date:
-<<<<<<< HEAD
                         title = escape_rtf(pres.title or "Без названия")
                         place = escape_rtf(pres.presentation_place or "")
                         line = f"{title} // {place} - {pres_date.isoformat()}"
@@ -1067,24 +1057,3 @@ def get_db_info(request):
         response = HttpResponse(error_text.encode('utf-8'), content_type='text/plain')
         response.status_code = 500
         return response
-=======
-                        title = pres.title or "Без названия"
-                        place = pres.presentation_place or ""
-                        line = f"{title} // {place} - {pres_date.isoformat()}"
-                        rtf_lines.append(line + r"\line")
-
-            if include_science_reports and data.get("load_type") == "yearly":
-                rtf_lines.append(f"Научный отчет пользователя {user.get_full_name() or user.username}\line")
-
-            rtf_lines.append(r"\line")
-
-        rtf_text = r"{\rtf1\ansi\n" + "\n".join(rtf_lines) + "\n}"
-
-        return Response({"rtf_text": rtf_text})
-
-    except Exception as e:
-        return Response({
-            "error": "Ошибка при выгрузке данных",
-            "details": str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
->>>>>>> 278c24aaeb6dfb613f223a582eb43ad85876d2b8
