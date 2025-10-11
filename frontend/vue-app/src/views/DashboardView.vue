@@ -1,8 +1,7 @@
 <template>
   <div class="dashboard">
-    <h1>Главная панель</h1>
+    <h1>Портал института им. Эйлера</h1>
     <p>Текущее время: {{ new Date().toLocaleTimeString() }}</p>
-    <p>Проверка отображения контента</p>
   </div>
 </template>
 

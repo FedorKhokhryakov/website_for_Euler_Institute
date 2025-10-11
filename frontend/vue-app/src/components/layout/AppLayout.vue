@@ -7,9 +7,24 @@
 
       <nav class="sidebar-nav">
         <router-link to="/dashboard" class="nav-link">Главная</router-link>
-        <router-link to="/activity" class="nav-link">Научная деятельность</router-link>
-        <router-link to="/add-publication" class="nav-link">Добавить публикацию</router-link>
-        <router-link to="/my-publications" class="nav-link">Мои публикации</router-link>
+        
+        <div v-if="showReportsSection" class="reports-section">
+          <div class="reports-label" @click="toggleReports">
+            <span>Отчеты</span>
+            <span class="dropdown-arrow" :class="{ rotated: isReportsOpen }">▶</span>
+          </div>
+          <div class="years-list" v-show="isReportsOpen">
+            <router-link 
+              v-for="year in years" 
+              :key="year"
+              :to="'/year_report/' + year" 
+              class="year-link"
+            >
+              {{ year }}
+            </router-link>
+          </div>
+        </div>
+
         <router-link 
             :to="userProfilePath" 
             class="nav-link"
@@ -17,27 +32,27 @@
             Моя учетная запись
         </router-link>
         
-        <router-link 
-          v-if="user?.is_admin || user?.role === 'admin'" 
-          to="/admin" 
-          class="nav-link admin-link"
-        >
-          Панель администратора
-        </router-link>
+        <div v-if="isAdmin" class="admin-section">
+          <router-link to="/admin/add-users" class="nav-link admin-link">
+            Добавить пользователя
+          </router-link>
+          <router-link to="/admin/generate-report" class="nav-link admin-link">
+            Сгенерировать отчет
+          </router-link>
+        </div>
       </nav>
 
       <button @click="logout" class="logout-button">Выйти</button>
     </aside>
 
     <main class="main-content">
-
       <router-view />
     </main>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { storeToRefs } from 'pinia'
@@ -46,12 +61,37 @@ const router = useRouter()
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
 
+const isReportsOpen = ref(false)
+
+const currentYear = new Date().getFullYear()
+const years = computed(() => {
+  const yearsList = []
+  for (let year = 2014; year <= currentYear; year++) {
+    yearsList.push(year)
+  }
+  return yearsList.reverse()
+})
+
+const isAdmin = computed(() => {
+  const adminRoles = ['MasterAdmin', 'AdminPOMI', 'AdminSPbU']
+  return user.value?.roles?.some(role => adminRoles.includes(role)) || false
+})
+
+const showReportsSection = computed(() => {
+  const userRolesList = ['UserSPbU', 'UserPOMI']
+  return user.value?.roles?.some(role => userRolesList.includes(role)) || false
+})
+
 const userProfilePath = computed(() => {
   if (user.value?.id) {
     return `/user/${user.value.id}/profile`
   }
   return '/dashboard'
 })
+
+const toggleReports = () => {
+  isReportsOpen.value = !isReportsOpen.value
+}
 
 const logout = () => {
   authStore.logout()
@@ -110,6 +150,66 @@ const logout = () => {
 .nav-link.router-link-active {
   background-color: var(--color-primary);
   color: var(--color-text-light);
+}
+
+.reports-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.reports-label {
+  padding: 8px 12px;
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  background-color: var(--color-surface);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.reports-label:hover {
+  background-color: var(--color-hover);
+}
+
+.dropdown-arrow {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+}
+
+.dropdown-arrow.rotated {
+  transform: rotate(90deg);
+}
+
+.years-list {
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+.year-link {
+  padding: 2px 12px 2px 24px;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  border: 1px solid transparent;
+  font-size: 0.9rem;
+  background-color: var(--color-surface);
+}
+
+.year-link:hover {
+  background-color: var(--color-hover);
+}
+
+.year-link.router-link-active {
+  background-color: var(--color-primary);
+  color: var(--color-text-light);
+}
+
+.admin-section {
+  display: flex;
+  flex-direction: column;
 }
 
 .admin-link {

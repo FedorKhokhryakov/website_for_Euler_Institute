@@ -14,96 +14,156 @@
 
     <div v-else-if="userData" class="profile-content">
       <div class="profile-main">
-        <div class="photo-placeholder">
-          <div class="photo-icon">
-            <span>👤</span>
-          </div>
-          <p>Фотография</p>
-        </div>
         <div class="info-container">
+          <div class="section-title">ФИО на русском</div>
+          <div class="info-row triple-fields">
+            <div class="field-group">
+              <label class="info-label">Фамилия</label>
+              <input 
+                class="info-input"
+                v-model="formData.second_name_rus"
+              >
+            </div>
+            <div class="field-group">
+              <label class="info-label">Имя</label>
+              <input 
+                class="info-input"
+                v-model="formData.first_name_rus"
+              >
+            </div>
+            <div class="field-group">
+              <label class="info-label">Отчество</label>
+              <input 
+                class="info-input"
+                v-model="formData.middle_name_rus"
+              >
+            </div>
+          </div>
+
+          <div class="section-title">ФИО на английском</div>
+          <div class="info-row triple-fields">
+            <div class="field-group">
+              <label class="info-label">Фамилия</label>
+              <input 
+                class="info-input"
+                v-model="formData.second_name_eng"
+              >
+            </div>
+            <div class="field-group">
+              <label class="info-label">Имя</label>
+              <input 
+                class="info-input"
+                v-model="formData.first_name_eng"
+              >
+            </div>
+            <div class="field-group">
+              <label class="info-label">Отчество</label>
+              <input 
+                class="info-input"
+                v-model="formData.middle_name_eng"
+              >
+            </div>
+          </div>
+
           <div class="info-row">
-            <span class="info-label">ФИО:</span>
-            <span class="info-value">{{ userData.last_name }} {{ userData.first_name }} {{ userData.middle_name || '' }}</span>
+            <label class="info-label">Email</label>
+            <input 
+              class="info-input"
+              v-model="formData.email"
+            >
           </div>
           
           <div class="info-row">
-            <span class="info-label">Email:</span>
-            <span class="info-value">{{ userData.email }}</span>
+            <label class="info-label">Год рождения</label>
+            <input 
+              class="info-input"
+              v-model="formData.year_of_birth"
+            >
           </div>
           
           <div class="info-row">
-            <span class="info-label">Лаборатория:</span>
-            <span class="info-value">{{ userData.laboratory || 'Не указана' }}</span>
+            <label class="info-label">Год окончания вуза</label>
+            <input 
+              class="info-input"
+              v-model="formData.year_of_graduation"
+            >
           </div>
           
           <div class="info-row">
-            <span class="info-label">Год рождения:</span>
-            <span class="info-value">{{ userData.birth_year || 'Не указан' }}</span>
+            <label class="info-label">Ученая степень</label>
+            <input 
+              class="info-input"
+              v-model="formData.academic_degree"
+            >
           </div>
           
           <div class="info-row">
-            <span class="info-label">Год окончания вуза:</span>
-            <span class="info-value">{{ userData.graduation_year || 'Не указан' }}</span>
+            <label class="info-label">Год получения степени</label>
+            <input 
+              class="info-input"
+              v-model="formData.year_of_degree"
+            >
           </div>
           
           <div class="info-row">
-            <span class="info-label">Ученая степень:</span>
-            <span class="info-value">{{ userData.academic_degree || 'Не указана' }}</span>
-          </div>
-          
-          <div class="info-row">
-            <span class="info-label">Год получения степени:</span>
-            <span class="info-value">{{ userData.degree_year || 'Не указан' }}</span>
-          </div>
-          
-          <div class="info-row">
-            <span class="info-label">Ученое звание:</span>
-            <span class="info-value">{{ userData.academic_title || 'Не указано' }}</span>
-          </div>
-          
-          <div class="info-row">
-            <span class="info-label">Должность:</span>
-            <span class="info-value">{{ userData.position || 'Не указана' }}</span>
-          </div>
-          
-          <div class="info-row">
-            <span class="info-label">Ставка:</span>
-            <span class="info-value">{{ userData.rate || 'Не указана' }}</span>
-          </div>
-          
-          <div class="info-row">
-            <span class="info-label">Статус:</span>
-            <span class="info-value">{{ userData.status || 'Не указан' }}</span>
-          </div>
-          
-          <div class="info-row">
-            <span class="info-label">Роль:</span>
-            <span class="info-value">{{ userData.role === 'admin' ? 'Администратор' : 'Пользователь' }}</span>
+            <label class="info-label">Должность</label>
+            <input 
+              class="info-input"
+              v-model="formData.position"
+            >
           </div>
         </div>
+      </div>
+
+      <div class="save-section">
+        <button 
+          class="save-button" 
+          @click="saveUserData"
+          :disabled="saving"
+        >
+          {{ saving ? 'Сохранение...' : 'Сохранить' }}
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import { usersAPI } from '../services/api.js'
 
-const route = useRoute()
-const userId = route.params.id
 const userData = ref(null)
 const loading = ref(true)
 const error = ref('')
+const saving = ref(false)
+
+const formData = reactive({
+  second_name_rus: '',
+  first_name_rus: '',
+  middle_name_rus: '',
+  second_name_eng: '',
+  first_name_eng: '',
+  middle_name_eng: '',
+  email: '',
+  year_of_birth: null,
+  year_of_graduation: null,
+  academic_degree: '',
+  year_of_degree: null,
+  position: ''
+})
 
 const loadUserData = async () => {
   try {
     loading.value = true
     error.value = ''
     
-    const response = await usersAPI.getById(userId)
+    const response = await usersAPI.getUserInfo()
     userData.value = response.data
+
+    console.log(userData.value);
+    
+    Object.assign(formData, userData.value.user_info)
     
   } catch (err) {
     console.error('Ошибка загрузки данных пользователя:', err)
@@ -121,6 +181,40 @@ const loadUserData = async () => {
   }
 }
 
+const saveUserData = async () => {
+  try {
+    saving.value = true
+    error.value = ''
+
+    const updateData = { ...formData }
+
+    const numericFields = ['year_of_birth', 'year_of_graduation', 'year_of_degree']
+    numericFields.forEach(field => {
+      if (updateData[field] === '' || updateData[field] === null) {
+        updateData[field] = null
+      } else {
+        updateData[field] = parseInt(updateData[field])
+      }
+    })
+
+    await usersAPI.updateUser(userData.value.user_info.id, updateData)
+    
+    alert('Данные успешно сохранены!')
+    
+  } catch (err) {
+    console.error('Ошибка сохранения данных:', err)
+    if (err.response?.status === 400) {
+      error.value = 'Ошибка валидации данных: ' + JSON.stringify(err.response.data)
+    } else if (err.response?.status === 403) {
+      error.value = 'Недостаточно прав для изменения данных'
+    } else {
+      error.value = 'Не удалось сохранить данные пользователя'
+    }
+  } finally {
+    saving.value = false
+  }
+}
+
 onMounted(() => {
   loadUserData()
 })
@@ -128,17 +222,17 @@ onMounted(() => {
 
 <style scoped>
 .user-profile {
-  padding: 1.5rem;
-  max-width: 1200px;
+  padding: 1rem;
+  max-width: 900px;
   margin: 0 auto;
 }
 
 .profile-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .profile-header h1 {
-  color: #2e7d32;
+  color: var(--color-primary);
   font-size: 1.8rem;
   font-weight: 600;
   margin: 0;
@@ -148,73 +242,98 @@ onMounted(() => {
 .error-state {
   text-align: center;
   padding: 2rem;
-  color: #666;
+  color: var(--color-text-secondary);
+  font-size: 1rem;
 }
 
 .error-state {
-  color: #d32f2f;
+  color: var(--color-secondary);
 }
 
 .profile-main {
   display: flex;
-  gap: 2rem;
   align-items: flex-start;
-}
-
-.photo-placeholder {
-  width: 150px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.photo-icon {
-  width: 120px;
-  height: 160px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 0.5rem;
-}
-
-.photo-icon span {
-  font-size: 3rem;
-}
-
-.photo-placeholder p {
-  color: #666;
-  font-size: 0.9rem;
-  margin: 0;
 }
 
 .info-container {
   flex: 1;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--color-primary);
 }
 
 .info-row {
   display: flex;
   flex-direction: column;
-  padding: 0.75rem;
-  background-color: #f8f9fa;
-  border-radius: 6px;
+  padding: 0.5rem;
+}
+
+.info-row.triple-fields {
+  flex-direction: row;
+  gap: 0.5rem;
+}
+
+.field-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .info-label {
   font-weight: 600;
-  color: #2e7d32;
+  color: var(--color-primary);
   font-size: 0.9rem;
   margin-bottom: 0.25rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-.info-value {
-  color: #2c3e50;
+.info-input {
+  color: var(--color-text-primary);
   font-size: 1rem;
-  font-weight: 500;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-background);
+  outline: none;
+  width: 100%;
+}
+
+.info-input:focus {
+  border-color: var(--color-primary);
+}
+
+/* Стили для секции сохранения */
+.save-section {
+  margin-top: 2rem;
+  padding: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.save-button {
+  background-color: var(--color-primary);
+  color: var(--color-text-light);
+  padding: 0.75rem 2rem;
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save-button:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+}
+
+.save-button:disabled {
+  background-color: var(--color-text-secondary);
+  cursor: not-allowed;
 }
 </style>

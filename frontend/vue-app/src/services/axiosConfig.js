@@ -11,8 +11,7 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    if (config.url.includes('/api/auth/login/') || 
-        config.url.includes('/api/auth/register/')) {
+    if (config.url.includes('/api/auth/login/')) {
       return config
     }
     

@@ -1,9 +1,126 @@
 <template>
   <div class="admin-reports">
     <div class="create-report-section">
-      <h3>Создать новый отчет</h3>
+      <h2>Создать выгрузку из базы данных</h2>
+      
       <div class="form-group">
-        <div class="searchable-select">
+        <label>Тип выгрузки:</label>
+        <div class="radio-group">
+          <label>
+            <input 
+              type="radio" 
+              v-model="reportSettings.load_type" 
+              value="yearly" 
+            />
+            Годовая
+          </label>
+          <label>
+            <input 
+              type="radio" 
+              v-model="reportSettings.load_type" 
+              value="quarterly" 
+            />
+            Квартальная
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div v-if="reportSettings.load_type === 'yearly'">
+          <label>Год:</label>
+          <select v-model="reportSettings.year" class="form-select">
+            <option value="">Выберите год</option>
+            <option v-for="year in years" :key="year" :value="year">
+              {{ year }}
+            </option>
+          </select>
+        </div>
+        
+        <div v-else class="quarterly-period">
+          <div class="period-row">
+            <div class="period-item">
+              <label>Начальный квартал:</label>
+              <div class="quarter-inputs">
+                <select v-model="reportSettings.start_quarter.quarter" class="form-select">
+                  <option value="">Квартал</option>
+                  <option value="1">1 квартал</option>
+                  <option value="2">2 квартал</option>
+                  <option value="3">3 квартал</option>
+                  <option value="4">4 квартал</option>
+                </select>
+                <select v-model="reportSettings.start_quarter.year" class="form-select">
+                  <option value="">Год</option>
+                  <option v-for="year in years" :key="year" :value="year">
+                    {{ year }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="period-item">
+              <label>Конечный квартал:</label>
+              <div class="quarter-inputs">
+                <select v-model="reportSettings.end_quarter.quarter" class="form-select">
+                  <option value="">Квартал</option>
+                  <option value="1">1 квартал</option>
+                  <option value="2">2 квартал</option>
+                  <option value="3">3 квартал</option>
+                  <option value="4">4 квартал</option>
+                </select>
+                <select v-model="reportSettings.end_quarter.year" class="form-select">
+                  <option value="">Год</option>
+                  <option v-for="year in years" :key="year" :value="year">
+                    {{ year }}
+                  </option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Пользователи для выгрузки:</label>
+        <div class="radio-group">
+          <label>
+            <input 
+              type="radio" 
+              v-model="reportSettings.user_type" 
+              value="all" 
+              @change="handleUserTypeChange"
+            />
+            Все пользователи
+          </label>
+          <label>
+            <input 
+              type="radio" 
+              v-model="reportSettings.user_type" 
+              value="POMI" 
+              @change="handleUserTypeChange"
+            />
+            Только ПOMИ
+          </label>
+          <label>
+            <input 
+              type="radio" 
+              v-model="reportSettings.user_type" 
+              value="SPbU" 
+              @change="handleUserTypeChange"
+            />
+            Только СПбГУ
+          </label>
+          <label>
+            <input 
+              type="radio" 
+              v-model="reportSettings.user_type" 
+              value="certain" 
+              @change="handleUserTypeChange"
+            />
+            Конкретный пользователь
+          </label>
+        </div>
+
+        <div v-if="reportSettings.user_type === 'certain'" class="searchable-select">
           <input
             type="text"
             v-model="userSearch"
@@ -26,70 +143,97 @@
           </div>
         </div>
       </div>
+
       <div class="form-group">
-        <select v-model="newReport.year" class="form-select">
-          <option value="">Выберите год</option>
-          <option v-for="year in years" :key="year" :value="year">
-            {{ year }}
-          </option>
-        </select>
+        <label>Включить в выгрузку:</label>
+        <div class="checkbox-group">
+          <label>
+            <input 
+              type="checkbox" 
+              v-model="reportSettings.publications" 
+            />
+            Публикации
+          </label>
+          <label v-if="reportSettings.publications">
+            <input 
+              type="checkbox" 
+              v-model="reportSettings.only_printed_publications" 
+            />
+            Только опубликованные публикации
+          </label>
+          <label>
+            <input 
+              type="checkbox" 
+              v-model="reportSettings.presentations" 
+            />
+            Доклады
+          </label>
+          <label v-if="reportSettings.load_type === 'yearly'">
+            <input 
+              type="checkbox" 
+              v-model="reportSettings.science_reports" 
+            />
+            Научные отчеты
+          </label>
+        </div>
       </div>
-      <button @click="generateReport" class="btn-generate" :disabled="isGenerating">
-        {{ isGenerating ? 'Генерация...' : 'Сгенерировать' }}
+
+      <button 
+        @click="generateReport" 
+        class="btn-generate" 
+        :disabled="isGenerating || !isFormValid"
+      >
+        {{ isGenerating ? 'Генерация...' : 'Сгенерировать выгрузку' }}
       </button>
+
+      <div v-if="errorMessage" class="error-message">
+        {{ errorMessage }}
+      </div>
+    </div>
+
+    <div v-if="previewContent" class="preview-section">
+      <h4>Предпросмотр выгрузки:</h4>
+      <div class="preview-content">
+        <pre>{{ previewContent }}</pre>
+      </div>
     </div>
   </div>
 </template>
 
-<!--<div class="saved-reports-section">
-      <h3>Сохраненные отчеты</h3>
-      <div v-if="isLoading" class="loading">Загрузка отчетов...</div>
-      <div v-else-if="reports.length === 0" class="no-reports">Нет сохраненных отчетов</div>
-      <table v-else>
-        <thead>
-          <tr>
-            <th>Название отчета</th>
-            <th>Дата создания</th>
-            <th>Действия</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="report in reports" :key="report.id">
-            <td>{{ report.name }}</td>
-            <td>{{ formatDate(report.created_at || report.date) }}</td>
-            <td>
-              <button @click="downloadReport(report)" class="btn-download" :disabled="isDownloading">
-                ⬇️
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>-->
-
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { usersAPI, reportsAPI } from '../../services/api.js'
+import { usersAPI, adminAPI } from '../../services/api.js'
 
-const newReport = ref({
-  userId: '',
+const reportSettings = ref({
+  load_type: 'yearly',
   year: '',
+  start_quarter: {
+    quarter: '',
+    year: ''
+  },
+  end_quarter: {
+    quarter: '',
+    year: ''
+  },
+  user_type: 'all',
+  user_id: '',
+  publications: true,
+  presentations: true,
+  science_reports: false,
+  only_printed_publications: false
 })
 
 const userSearch = ref('')
 const showDropdown = ref(false)
 const selectedUser = ref(null)
 const isGenerating = ref(false)
-const isLoading = ref(false)
-const isDownloading = ref(false)
-
 const users = ref([])
-const reports = ref([])
-
+const errorMessage = ref('')
+const previewContent = ref('')
 
 const years = computed(() => {
   const startYear = 2000
-  const endYear = 2025
+  const endYear = new Date().getFullYear()
   const yearList = []
   for (let year = endYear; year >= startYear; year--) {
     yearList.push(year)
@@ -99,24 +243,11 @@ const years = computed(() => {
 
 const loadUsers = async () => {
   try {
-    const response = await usersAPI.getAll()
-    console.log(response.data)
-    users.value = response.data
+    const response = await usersAPI.getAllUsers()
+    users.value = response.data.users || response.data
   } catch (error) {
     console.error('Ошибка загрузки пользователей:', error)
-  }
-}
-
-const loadReports = async () => {
-  isLoading.value = true
-  try {
-    const response = await reportsAPI.getAll()
-    console.log(response.data)
-    reports.value = response.data
-  } catch (error) {
-    console.error('Ошибка загрузки отчетов:', error)
-  } finally {
-    isLoading.value = false
+    errorMessage.value = 'Ошибка загрузки списка пользователей'
   }
 }
 
@@ -129,9 +260,43 @@ const filteredUsers = computed(() => {
   })
 })
 
+const isFormValid = computed(() => {
+  const settings = reportSettings.value
+  
+  if (settings.load_type === 'yearly') {
+    if (!settings.year) return false
+  } else {
+    if (!settings.start_quarter.quarter || !settings.start_quarter.year || 
+        !settings.end_quarter.quarter || !settings.end_quarter.year) {
+      return false
+    }
+    
+    const startDate = new Date(settings.start_quarter.year, (settings.start_quarter.quarter - 1) * 3)
+    const endDate = new Date(settings.end_quarter.year, (settings.end_quarter.quarter - 1) * 3 + 2)
+    if (startDate > endDate) return false
+  }
+  
+  if (settings.user_type === 'certain' && !settings.user_id) return false
+  
+  if (!settings.publications && !settings.presentations && 
+      !(settings.load_type === 'yearly' && settings.science_reports)) {
+    return false
+  }
+  
+  return true
+})
+
+const handleUserTypeChange = () => {
+  if (reportSettings.value.user_type !== 'certain') {
+    reportSettings.value.user_id = ''
+    selectedUser.value = null
+    userSearch.value = ''
+  }
+}
+
 const selectUser = (user) => {
   selectedUser.value = user
-  newReport.value.userId = user.id
+  reportSettings.value.user_id = user.id
   userSearch.value = getUserFullName(user)
   showDropdown.value = false
 }
@@ -148,58 +313,93 @@ const handleClickOutside = (event) => {
 }
 
 const generateReport = async () => {
-  if (!newReport.value.userId || !newReport.value.year) {
-    alert('Выберите сотрудника и год')
+  if (!isFormValid.value) {
+    errorMessage.value = 'Заполните все обязательные поля корректно'
     return
   }
 
   isGenerating.value = true
+  errorMessage.value = ''
+  previewContent.value = ''
+
   try {
-    const reportData = {
-      user_id: newReport.value.userId,
-      year: newReport.value.year,
-      format: 'rtf'
+    const requestData = { ...reportSettings.value }
+    
+    if (requestData.user_type !== 'certain') {
+      delete requestData.user_id
     }
     
-    const response = await reportsAPI.download_report_api(reportData)
-    
-    const blob = new Blob([response.data], { type: 'application/rtf' })
+    if (requestData.load_type === 'yearly') {
+      delete requestData.start_quarter
+      delete requestData.end_quarter
+      requestData.year = parseInt(requestData.year)
+    } else {
+      delete requestData.year
+      delete requestData.science_reports
+      
+      requestData.start_quarter = {
+        quarter: parseInt(requestData.start_quarter.quarter),
+        year: parseInt(requestData.start_quarter.year)
+      }
+      requestData.end_quarter = {
+        quarter: parseInt(requestData.end_quarter.quarter),
+        year: parseInt(requestData.end_quarter.year)
+      }
+    }
+
+    requestData.publications = Boolean(requestData.publications)
+    requestData.presentations = Boolean(requestData.presentations)
+    requestData.only_printed_publications = Boolean(requestData.only_printed_publications)
+    if (requestData.load_type === 'yearly') {
+      requestData.science_reports = Boolean(requestData.science_reports)
+    }
+
+    const response = await adminAPI.getDBInfoBlob(requestData)
+
+    const blob = response.data
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    
-    const fileName = `report_${selectedUser.value.username}_${newReport.value.year}.rtf`
-    link.setAttribute('download', fileName)
+    link.download = generateFileName()
     
     document.body.appendChild(link)
     link.click()
-    link.remove()
+    document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
     
-    newReport.value.userId = ''
-    newReport.value.year = ''
-    userSearch.value = ''
-    selectedUser.value = null
-    
-    alert('Отчет успешно сгенерирован и скачан')
+    errorMessage.value = 'Выгрузка успешно сгенерирована'
     
   } catch (error) {
-    console.error('Ошибка генерации отчета:', error)
-    alert('Не удалось сгенерировать отчет')
+    console.error('Ошибка генерации выгрузки:', error)
+    errorMessage.value = error.response?.data?.error || error.message || 'Не удалось сгенерировать выгрузку'
   } finally {
     isGenerating.value = false
   }
 }
 
-const formatDate = (dateString) => {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  return date.toLocaleDateString('ru-RU')
+const generateFileName = () => {
+  const settings = reportSettings.value
+  let fileName = 'report_'
+  
+  if (settings.load_type === 'yearly') {
+    fileName += `yearly_${settings.year}`
+  } else {
+    fileName += `quarterly_${settings.start_quarter.year}Q${settings.start_quarter.quarter}-${settings.end_quarter.year}Q${settings.end_quarter.quarter}`
+  }
+  
+  fileName += `_${settings.user_type}`
+  
+  if (settings.user_type === 'certain' && selectedUser.value) {
+    fileName += `_${selectedUser.value.username}`
+  }
+  
+  fileName += '.rtf'
+  
+  return fileName
 }
 
 onMounted(() => {
   loadUsers()
-  loadReports()
   document.addEventListener('click', handleClickOutside)
 })
 
@@ -211,34 +411,82 @@ onUnmounted(() => {
 <style scoped>
 .admin-reports {
   padding: 1rem;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .create-report-section {
   margin-bottom: 2rem;
-  padding: 1rem;
-  border: 1px solid #ddd;
+  padding: 1.5rem;
 }
 
-.create-report-section h3 {
-  margin-bottom: 1rem;
+.create-report-section h2 {
+  margin-bottom: 1.5rem;
+  color: var(--color-text-primary);
+  padding-bottom: 0.5rem;
 }
 
 .form-group {
-  margin-bottom: 1rem;
-  position: relative;
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.radio-group,
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.radio-group label,
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  font-weight: normal;
+  cursor: pointer;
+}
+
+.radio-group input[type="radio"],
+.checkbox-group input[type="checkbox"] {
+  margin-right: 0.5rem;
 }
 
 .form-select {
   padding: 0.5rem;
-  border: 1px solid #ddd;
-  margin-right: 1rem;
+  border: 1px solid var(--color-border);
   width: 100%;
   box-sizing: border-box;
-  max-height: 200px;
+  font-size: 14px;
+  background-color: var(--color-background);
+}
+
+.quarterly-period .period-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.period-item {
+  flex: 1;
+}
+
+.quarter-inputs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.quarter-inputs .form-select {
+  flex: 1;
 }
 
 .searchable-select {
   position: relative;
+  margin-top: 0.5rem;
 }
 
 .search-input {
@@ -250,8 +498,8 @@ onUnmounted(() => {
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
-  border: 1px solid #ddd;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
   border-top: none;
   max-height: 200px;
   overflow-y: auto;
@@ -261,74 +509,71 @@ onUnmounted(() => {
 .dropdown-item {
   padding: 0.5rem;
   cursor: pointer;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .dropdown-item:hover {
-  background-color: #f0f0f0;
+  background-color: var(--color-hover);
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
 }
 
 .no-results {
-  color: #999;
+  color: var(--color-text-secondary);
   font-style: italic;
 }
 
 .btn-generate {
-  padding: 0.5rem 1rem;
-  background-color: #2e7d32;
-  color: white;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-primary);
+  color: var(--color-text-light);
   border: none;
   cursor: pointer;
-}
-
-.btn-generate:hover:not(:disabled) {
-  background-color: #1b5e20;
-}
-
-.btn-generate:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-.saved-reports-section {
-  margin-top: 2rem;
-}
-
-.saved-reports-section table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.saved-reports-section th,
-.saved-reports-section td {
-  padding: 0.75rem;
-  text-align: left;
-  border-bottom: 1px solid #ddd;
-}
-
-.saved-reports-section th {
-  background-color: #f8f9fa;
+  font-size: 16px;
   font-weight: 600;
 }
 
-.btn-download {
-  padding: 0.25rem 0.5rem;
-  border: 1px solid #ddd;
-  background: white;
-  cursor: pointer;
+.btn-generate:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
 }
 
-.btn-download:hover:not(:disabled) {
-  background-color: #e8f5e8;
-}
-
-.btn-download:disabled {
-  opacity: 0.5;
+.btn-generate:disabled {
+  background-color: var(--color-text-secondary);
   cursor: not-allowed;
 }
 
-.loading, .no-reports {
-  text-align: center;
-  padding: 2rem;
-  color: #666;
+.error-message {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: var(--color-secondary);
+  color: var(--color-text-light);
+  font-weight: 600;
 }
+
+.preview-section {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.preview-section h4 {
+  margin-bottom: 1rem;
+  color: var(--color-text-primary);
+}
+
+.preview-content {
+  background-color: var(--color-background);
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 </style>
