@@ -123,7 +123,7 @@ router.beforeEach(async (to, from, next) => {
   }
   
   const isAuthenticated = authStore.isAuthenticated
-  const isAdmin = authStore.user?.is_admin
+  const isAdmin = authStore.user?.is_admin || authStore.user?.role === 'admin'
   
   if (to.meta.requiresAuth && !isAuthenticated) {
     next("/login")

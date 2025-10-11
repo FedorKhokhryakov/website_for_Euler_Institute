@@ -42,11 +42,19 @@ def get_current_user(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-#GET /api/publications/
+#GET /api/my_publications/
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_user_publications(request):
-    publications = Post.objects.filter(authors__id=request.user.id).order_by('-created_at')
+    publications = Post.objects.filter(created_by=request.user).order_by('-created_at')
+    serializer = PublicationSerializer(publications, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+#GET /api/all_publications/
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_publications(request):
+    publications = Post.objects.order_by('-created_at')
     serializer = PublicationSerializer(publications, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -107,7 +115,7 @@ def create_publication(request):
 def check_publication_owner(request, id):
     publication = get_object_or_404(Post, id=id)
 
-    is_owner = publication.authors.filter(id=request.user.id).exists()
+    is_owner = publication.created_by == id
     is_admin = request.user.is_admin or request.user.is_superuser
 
     serializer = OwnerCheckSerializer({
@@ -310,10 +318,6 @@ def list_reports(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def download_report_api(request):
-    """
-    API endpoint для скачивания отчета
-    POST /api/reports/download/
-    """
     if not request.user.is_staff:
         return Response({
             "error": "Доступ запрещен. Требуются права администратора."
@@ -342,34 +346,72 @@ def download_report_api(request):
             "error": "Пользователь не найден"
         }, status=status.HTTP_404_NOT_FOUND)
 
-    class MockRequest:
-        def __init__(self, user, user_id, year):
-            self.user = user
-            self.POST = {'user': str(user_id), 'year': str(year)}
-            self.method = 'POST'
-
-    mock_request = MockRequest(request.user, user_id, year)
-
     try:
-        response = generate_user_report(mock_request)
+        posts = Post.objects.filter(created_by=user, year=year).order_by("type", "year")
 
-        if hasattr(response, 'content'):
-            filename = f"report_{user.username}_{year}.rtf"
+        from collections import defaultdict
+        grouped = defaultdict(list)
+        for post in posts:
+            grouped[post.get_type_display()].append(post)
 
-            return HttpResponse(
-                response.content,
-                content_type=response['Content-Type'],
-                headers={
-                    'Content-Disposition': f'attachment; filename="{filename}"'
-                }
-            )
-        else:
-            return Response({
-                "error": "Ошибка при генерации отчета"
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        report_text = f"# Отчёт по публикациям пользователя {user.last_name} {user.first_name}{ (" " + user.middle_name) or '' } за {year} год\n\n"
+        for type_name, items in grouped.items():
+            report_text += f"## {type_name}\n"
+            for p in items:
+                report_text += f"- {p.year}: {p.title}, ID: {p.article_identification_number or 'Без номера'}"
+                if p.web_page:
+                    report_text += f" ([ссылка]({p.web_page}))"
+                report_text += "\n"
+            report_text += "\n\n"
+            
     except Exception as e:
         return Response({
             "error": "Ошибка при генерации отчета",
+            "details": str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    import tempfile
+    import os
+    from django.utils.text import slugify
+    from datetime import datetime
+    
+    try:
+        import pypandoc
+        try:
+            pypandoc.get_pandoc_version()
+        except OSError:
+            pypandoc.download_pandoc()
+    except ImportError:
+        return Response({
+            "error": "Библиотека pypandoc не установлена"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    filename = f"report_{slugify(user.username)}_{year}_{datetime.now().strftime('%Y%m%d')}.rtf"
+    temp_dir = tempfile.gettempdir()
+    rtf_path = os.path.join(temp_dir, filename)
+
+    try:
+        pypandoc.convert_text(report_text, "rtf", format="md", outputfile=rtf_path, extra_args=["--standalone"])
+
+        with open(rtf_path, 'rb') as f:
+            response = HttpResponse(f.read(), content_type='application/rtf')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            import threading
+            def delete_file_later(file_path):
+                import time
+                time.sleep(15)
+                try:
+                    os.remove(file_path)
+                except:
+                    pass
+            
+            threading.Thread(target=delete_file_later, args=(rtf_path,)).start()
+            
+            return response
+
+    except Exception as e:
+        return Response({
+            "error": "Ошибка при генерации RTF файла",
             "details": str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

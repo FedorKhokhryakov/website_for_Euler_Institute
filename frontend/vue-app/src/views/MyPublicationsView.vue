@@ -54,7 +54,7 @@
         <div v-if="publication.journal" class="publication-journal">
           {{ publication.journal }}
           <span v-if="publication.volume || publication.issue">
-            ({{ publication.volume }}{{ publication.issue ? '(' + publication.issue + ')' : '' }})
+            (Том: {{ publication.volume }}{{ publication.issue ? ', Номер: ' + publication.issue : '' }})
           </span>
         </div>
         
@@ -165,7 +165,7 @@ watch(filterType, () => {
 const loadPublications = async () => {
   loading.value = true;
   try {
-    const response = await publicationsAPI.getAll()
+    const response = await publicationsAPI.getUserAll()
     console.log("Публикации: ", response.data)
     publications.value = response.data;
   } catch (error) {

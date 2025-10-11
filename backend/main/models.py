@@ -70,13 +70,23 @@ class Post(models.Model):
         ('rejected', 'Отклонено'),
     ]
 
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='posts',
+        verbose_name='Создатель публикации',
+        null=True,
+        blank=True
+    )
+
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, verbose_name="Тип публикации")
     title = models.CharField(max_length=255, blank=True, verbose_name="Название")
     tome = models.IntegerField(null=True, blank=True, verbose_name="Том")
     number = models.IntegerField(null=True, blank=True, verbose_name="Номер")
     article_identification_number = models.CharField(max_length=100, blank=True,
                                                      verbose_name="Идентификационный номер статьи")
-    pages = models.IntegerField(null=True, blank=True, verbose_name="Страницы")
+    authors_string = models.CharField(max_length=255, blank=True, verbose_name="Авторы")
+    pages = models.CharField(max_length=100, null=True, blank=True, verbose_name="Страницы")
     year = models.IntegerField(verbose_name="Год публикации")
     language = models.CharField(max_length=50, default='Русский', verbose_name="Язык")
     web_page = models.URLField(blank=True, verbose_name="Веб-страница")

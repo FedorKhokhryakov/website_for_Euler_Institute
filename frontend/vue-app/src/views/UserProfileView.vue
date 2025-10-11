@@ -27,11 +27,6 @@
           </div>
           
           <div class="info-row">
-            <span class="info-label">Имя пользователя:</span>
-            <span class="info-value">{{ userData.username }}</span>
-          </div>
-          
-          <div class="info-row">
             <span class="info-label">Email:</span>
             <span class="info-value">{{ userData.email }}</span>
           </div>

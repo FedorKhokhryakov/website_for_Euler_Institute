@@ -18,7 +18,7 @@
         </router-link>
         
         <router-link 
-          v-if="user?.is_admin" 
+          v-if="user?.is_admin || user?.role === 'admin'" 
           to="/admin" 
           class="nav-link admin-link"
         >

@@ -11,6 +11,7 @@ urlpatterns = [
 
     path('api/auth/register/', api_views.register_user, name='register'),
 
+    path('api/all_publications/', api_views.get_all_publications, name='all-publications'),
     path('api/my_publications/', api_views.get_user_publications, name='user-publications'),
     path('api/publications/<int:id>/', api_views.get_publication_detail, name='publication-detail'),
     path('api/publications/<int:id>/check-owner/', api_views.check_publication_owner, name='check-owner'),

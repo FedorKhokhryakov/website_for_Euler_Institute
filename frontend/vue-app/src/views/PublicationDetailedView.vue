@@ -98,46 +98,10 @@ const loadPublication = async (id) => {
     publication.value = response.data;
   } catch (error) {
     console.error('Ошибка:', error);
-    // Fallback на моковые данные
-    publication.value = getMockPublication(id);
   } finally {
     loading.value = false;
   }
 }
-
-/*const loadPublication = async (id) => {
-  loading.value = true;
-  try {
-    // Заглушка для тестирования верстки
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    publication.value = {
-      id: id,
-      type: 'publication',
-      title: 'Исследование методов машинного обучения',
-      authors: 'Иванов И.И., Петров П.П., Сидоров С.С.',
-      authorCount: 3,
-      receivedDate: '2024-01-15',
-      decisionDate: '2024-02-20',
-      publishedDate: '2024-03-10',
-      journal: 'Журнал компьютерных наук',
-      volume: '15',
-      issue: '3',
-      articleId: 'DOI:10.1234/abc123',
-      pages: '123-145',
-      year: '2024',
-      language: 'russian',
-      webpage: 'https://example.com/article1',
-      facultyCoauthors: false,
-      comment: 'Важное исследование в области искусственного интеллекта и машинного обучения'
-    };
-    
-  } catch (error) {
-    console.error('Ошибка:', error);
-  } finally {
-    loading.value = false;
-  }
-}*/
 
 const getTypeLabel = (type) => {
   const typeLabels = {
