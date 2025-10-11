@@ -3,140 +3,210 @@ from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class User(AbstractUser):
-    middle_name = models.CharField(_('отчество'), max_length=150, blank=True)
-    email = models.EmailField(_('email address'), unique=True)
+    first_name_rus = models.CharField('Имя (рус)', max_length=150)
+    second_name_rus = models.CharField('Фамилия (рус)', max_length=150)
+    middle_name_rus = models.CharField('Отчество (рус)', max_length=150, blank=True)
+    first_name_eng = models.CharField('Имя (англ)', max_length=150, blank=True)
+    second_name_eng = models.CharField('Фамилия (англ)', max_length=150, blank=True)
+    middle_name_eng = models.CharField('Отчество (англ)', max_length=150, blank=True)
+    email = models.EmailField(unique=True)
+    group = models.CharField('Группа', max_length=10, choices=[('SPbU', 'СПбГУ'), ('POMI', 'ПОМИ')])
+    year_of_birth = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1900), MaxValueValidator(2100)])
+    year_of_graduation = models.IntegerField(null=True, blank=True)
+    academic_degree = models.CharField('Ученая степень', max_length=100, blank=True)
+    year_of_degree = models.IntegerField('Год получения степени', null=True, blank=True)
+    position = models.CharField('Должность', max_length=100, blank=True)
 
-    laboratory = models.CharField(max_length=100, blank=True, verbose_name="Лаборатория")
-    year_of_birth = models.IntegerField(null=True, blank=True, verbose_name="Год рождения")
-    year_of_graduation = models.IntegerField(null=True, blank=True, verbose_name="Год окончания вуза")
-    academic_degree = models.CharField(max_length=100, blank=True, verbose_name="Ученая степень")
-    year_of_degree = models.IntegerField(null=True, blank=True, verbose_name="Год получения степени")
-    status = models.CharField(max_length=100, blank=True, verbose_name="Статус")
-    position = models.CharField(max_length=100, blank=True, verbose_name="Должность")
-    title = models.CharField(max_length=100, blank=True, verbose_name="Звание")
-    fte = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True, verbose_name="Ставка")
-    is_admin = models.BooleanField(default=False, verbose_name="Администратор")
+    def __str__(self):
+        return f"{self.second_name_rus} {self.first_name_rus}"
 
 
     class Meta:
         verbose_name = "Пользователь"
         verbose_name_plural = "Пользователи"
 
-    def __str__(self):
-        if self.last_name and self.first_name:
-            full_name = f"{self.last_name} {self.first_name}"
-            if self.middle_name:
-                full_name += f" {self.middle_name}"
-            return full_name
-        return self.username
 
-    @property
-    def full_name(self):
-        """Возвращает полное ФИО"""
-        parts = []
-        if self.last_name:
-            parts.append(self.last_name)
-        if self.first_name:
-            parts.append(self.first_name)
-        if self.middle_name:
-            parts.append(self.middle_name)
-        return " ".join(parts) if parts else self.username
+class Role(models.Model):
+    ROLE_CHOICES = [
+        ('MasterAdmin', 'Главный администратор'),
+        ('AdminSPbU', 'Администратор СПбГУ'),
+        ('AdminPOMI', 'Администратор ПОМИ'),
+        ('UserSPbU', 'Пользователь СПбГУ'),
+        ('UserPOMI', 'Пользователь ПОМИ'),
+    ]
+
+    name = models.CharField(max_length=20, choices=ROLE_CHOICES, unique=True)
+
+class UserRole(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='roles')
+    role = models.ForeignKey(Role, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ['user', 'role']
+
+
+class YearReport(models.Model):
+    STATUS_CHOICES = [
+        ('idle', 'Черновик'),
+        ('on_checking', 'На проверке'),
+        ('to_rework', 'На доработку'),
+        ('signed', 'Подписан'),
+    ]
+
+    year = models.IntegerField(validators=[MinValueValidator(2000), MaxValueValidator(2100)])
+    report_text = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='idle')
+    admin_comment = models.TextField(blank=True)
+    #created_at = models.DateTimeField(auto_now_add=True)
+    #updated_at = models.DateTimeField(auto_now=True)
+    #users = models.ManyToManyField(User, through='UserReport')
+
+class UserReport(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    report = models.ForeignKey(YearReport, on_delete=models.CASCADE)
 
 
 class Post(models.Model):
-    TYPE_CHOICES = [
-        ('publication', 'Публикация'),
-        ('monograph', 'Монография'),
-        ('reports', 'Доклад'),
-        ('lectures', 'Курс лекций'),
-        ('patents', 'Патент'),
-        ('supervision', 'Научное руководство'),
-        ('editing', 'Редактирование научных изданий'),
-        ('editorial_board', 'Работа в ред. коллегии'),
-        ('org_work', 'Научно-организационная работа'),
-        ('opposition', 'Оппонирование'),
-        ('grants', 'Грант'),
-        ('awards', 'Награда'),
-    ]
+    type = models.CharField(max_length=20)
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    #authors = models.ManyToManyField(User, through='PostAuthor')
 
-    STATUS_CHOICES = [
-        ('draft', 'Черновик'),
-        ('submitted', 'На рассмотрении'),
-        ('accepted', 'Принято'),
-        ('published', 'Опубликовано'),
-        ('rejected', 'Отклонено'),
-    ]
-
-    created_by = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='posts',
-        verbose_name='Создатель публикации',
-        null=True,
-        blank=True
-    )
-
-    type = models.CharField(max_length=20, choices=TYPE_CHOICES, verbose_name="Тип публикации")
-    title = models.CharField(max_length=255, blank=True, verbose_name="Название")
-    tome = models.IntegerField(null=True, blank=True, verbose_name="Том")
-    number = models.IntegerField(null=True, blank=True, verbose_name="Номер")
-    article_identification_number = models.CharField(max_length=100, blank=True,
-                                                     verbose_name="Идентификационный номер статьи")
-    authors_string = models.CharField(max_length=255, blank=True, verbose_name="Авторы")
-    pages = models.CharField(max_length=100, null=True, blank=True, verbose_name="Страницы")
-    year = models.IntegerField(verbose_name="Год публикации")
-    language = models.CharField(max_length=50, default='Русский', verbose_name="Язык")
-    web_page = models.URLField(blank=True, verbose_name="Веб-страница")
-    comment = models.TextField(blank=True, verbose_name="Комментарий")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Статус")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
-    accepted_at = models.DateTimeField(null=True, blank=True, verbose_name="Принято")
-    received_date = models.DateField(null=True, blank=True, verbose_name="Дата получения")
-    decision_date = models.DateField(null=True, blank=True, verbose_name="Дата решения")
-    published_date = models.DateField(null=True, blank=True, verbose_name="Дата публикации")
-    journal_name = models.CharField(max_length=255, blank=True, verbose_name="Название журнала")
-    has_faculty_coauthors = models.BooleanField(default=False, verbose_name="Есть соавторы с факультета")
+class PostAuthor(models.Model):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     class Meta:
-        verbose_name = "Публикация"
-        verbose_name_plural = "Публикации"
-        ordering = ['-created_at']
+        unique_together = ['post', 'user']
 
-    def __str__(self):
-        return self.title or f"{self.get_type_display()} ({self.year})"
 
-    def get_absolute_url(self):
-        return reverse('post_detail', kwargs={'pk': self.pk})
+class Publication(models.Model):
+    class Status(models.TextChoices):
+        PREPRINT = "preprint", "Препринт"
+        SUBMITTED = "submitted", "Отправлено"
+        ACCEPTED = "accepted", "Принято"
+        PUBLISHED = "published", "Опубликовано"
+
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name='publication')
+    current_status = models.CharField(max_length=20, choices=Status.choices, default=Status.PREPRINT)
+
+    title = models.CharField(max_length=255)
+    language = models.CharField(max_length=50)
+    preprint_date = models.DateField()
+    preprint_number = models.CharField(max_length=100)
+    preprint_document_file_path = models.CharField(max_length=500, blank=True)
+
+    submission_date = models.DateField(null=True, blank=True)
+    journal_name = models.CharField(max_length=255, blank=True)
+    journal_issn = models.CharField(max_length=20, blank=True)
+    submission_document_file_path = models.CharField(max_length=500, blank=True)
+
+    acceptance_date = models.DateField(null=True, blank=True)
+    doi = models.CharField(max_length=100, blank=True)
+    accepted_document_file_path = models.CharField(max_length=500, blank=True)
+
+    publication_date = models.DateField(null=True, blank=True)
+    journal_volume = models.IntegerField(null=True, blank=True)
+    journal_number = models.IntegerField(null=True, blank=True)
+    journal_pages_or_article_number = models.CharField(max_length=50, blank=True)
+    journal_level = models.CharField(max_length=50, blank=True)
+    publicated_document_file_path = models.CharField(max_length=500, blank=True)
+
+class ExternalPublicationAuthor(models.Model):
+    publication = models.ForeignKey(Publication, on_delete=models.CASCADE, related_name='external_authors')
+    author_name = models.CharField(max_length=255)
+
+class Presentation(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name='presentation')
+    title = models.CharField(max_length=255)
+    language = models.CharField(max_length=50)
+    description = models.TextField(blank=True)
+    presentation_place = models.CharField(max_length=255, blank=True)
+    presentation_date = models.DateField(blank=True)
+
+
+class Monograph(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="monograph")
+    publisher = models.CharField(max_length=255)
+    pages = models.PositiveIntegerField()
+
+
+# class Presentation(models.Model):
+#     post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="presentation")
+#     conference = models.CharField(max_length=255)
+#     city = models.CharField(max_length=255)
+
+
+class Lecture(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="lecture")
+    course_name = models.CharField(max_length=255)
+    semester = models.CharField(max_length=50)
+
+
+class Patent(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="patent")
+    number = models.CharField(max_length=50)
+    date_registered = models.DateField()
+
+
+class Supervision(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="supervision")
+    student_name = models.CharField(max_length=255)
+    topic = models.CharField(max_length=255)
+
+
+class Editing(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="editing")
+    edition_name = models.CharField(max_length=255)
+
+
+class EditorialBoard(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="editorial_board")
+    journal = models.CharField(max_length=255)
+
+
+class OrgWork(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="org_work")
+    organization = models.CharField(max_length=255)
+
+
+class Opposition(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="opposition")
+    thesis_title = models.CharField(max_length=255)
+
+
+class Grant(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="grant")
+    fund_name = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+
+class Award(models.Model):
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="award")
+    award_name = models.CharField(max_length=255)
+    year = models.PositiveIntegerField()
 
 
 class PostAuthor(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='authors', verbose_name="Публикация")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_authors', verbose_name="Автор")
-    order = models.IntegerField(default=0, verbose_name="Порядок автора")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='authors_post', verbose_name="Автор")
 
     class Meta:
         verbose_name = "Автор публикации"
         verbose_name_plural = "Авторы публикаций"
         unique_together = ['post', 'user']
-        ordering = ['order']
 
-    def __str__(self):
-        return f"{self.user.username} - {self.post}"
 
 class Report(models.Model):
     REPORT_TYPES = [
         ('annual_user', 'Годовой отчет пользователя'),
         ('annual_lab', 'Годовой отчет лаборатории'),
         ('custom', 'Произвольный отчет'),
-    ]
-
-    REPORT_FORMATS = [
-        ('rtf', 'RTF'),
-        ('pdf', 'PDF'),
-        ('docx', 'DOCX'),
     ]
 
     REPORT_STATUSES = [
@@ -151,7 +221,6 @@ class Report(models.Model):
                                    verbose_name="Создатель отчета", null=True, blank=True)
     year = models.IntegerField(verbose_name="Год отчета")
     report_type = models.CharField(max_length=20, choices=REPORT_TYPES, verbose_name="Тип отчета", null=True, blank=True)
-    format = models.CharField(max_length=10, choices=REPORT_FORMATS, default='rtf', verbose_name="Формат")
     status = models.CharField(max_length=20, choices=REPORT_STATUSES, default='pending', verbose_name="Статус")
     name = models.CharField(max_length=255, verbose_name="Название отчета")
     file_path = models.CharField(max_length=500, blank=True, null=True, verbose_name="Путь к файлу")

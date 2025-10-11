@@ -2,20 +2,15 @@ import os
 from collections import defaultdict
 
 import pypandoc
+from datetime import datetime
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 
 from euler import settings
-from .models import User, Post, PostAuthor, Report
+from .models import *
+from .utils import is_admin_user
 
-
-class UserAuthSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name',
-                 'is_admin', 'laboratory', 'position',]
-        read_only_fields = ['id', 'is_admin']
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
@@ -39,46 +34,120 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError('Must include username and password.')
 
 
-class UserSerializer(serializers.ModelSerializer):
-    role = serializers.SerializerMethodField()
-    birth_year = serializers.IntegerField(source='year_of_birth', allow_null=True)
-    graduation_year = serializers.IntegerField(source='year_of_graduation', allow_null=True)
-    degree_year = serializers.IntegerField(source='year_of_degree', allow_null=True)
-    academic_title = serializers.CharField(source='title', allow_null=True)
-    rate = serializers.DecimalField(source='fte', max_digits=3, decimal_places=2, allow_null=True)
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ['id', 'name']
 
+
+class BaseUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name', 'middle_name',
-            'role', 'laboratory', 'birth_year', 'graduation_year', 'academic_degree',
-            'degree_year', 'academic_title', 'position', 'rate', 'status',
+            'id', 'username', 'email',
+            'first_name_rus', 'second_name_rus', 'middle_name_rus',
+            'first_name_eng', 'second_name_eng', 'middle_name_eng',
+            'group', 'year_of_birth', 'year_of_graduation',
+            'academic_degree', 'year_of_degree', 'position'
         ]
+
+    def validate_group(self, value):
+        if value and value not in ['SPbU', 'POMI']:
+            raise serializers.ValidationError("Группа должна быть SPbU или POMI")
+        return value
+
+    def validate_year_fields(self, value, field_name):
+        if value is not None:
+            current_year = datetime.now().year
+            if value < 1900 or value > current_year + 10:
+                raise serializers.ValidationError(f"{field_name} должен быть между 1900 и {current_year + 10}")
+        return value
+
+
+class UserSerializer(BaseUserSerializer):
+    pass
+
+
+class UserInfoSerializer(BaseUserSerializer):
+    roles = serializers.SerializerMethodField()
+    is_admin = serializers.SerializerMethodField()
+
+    class Meta(BaseUserSerializer.Meta):
+        fields = BaseUserSerializer.Meta.fields + ['roles', 'is_admin']
         read_only_fields = ['id']
 
-    def get_role(self, obj):
-        return 'admin' if obj.is_admin else 'user'
+    def get_roles(self, obj):
+        user_roles = obj.roles.all()
+        role_objects = [user_role.role for user_role in user_roles]
+        return RoleSerializer(role_objects, many=True).data
+
+    def get_is_admin(self, obj):
+        return is_admin_user(obj)
 
 
-class PublicationSerializer(serializers.ModelSerializer):
-    authors = serializers.CharField(source='authors_string')
-    authorCount = serializers.SerializerMethodField()
+class UserUpdateSerializer(BaseUserSerializer):
+    password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        validators=[validate_password]
+    )
 
-    title = serializers.SerializerMethodField()
-    receivedDate = serializers.SerializerMethodField()
-    decisionDate = serializers.SerializerMethodField()
-    publishedDate = serializers.SerializerMethodField()
-    journal = serializers.SerializerMethodField()
-    pages = serializers.CharField()
-    volume = serializers.CharField(source='tome')
-    issue = serializers.CharField(source='number')
-    articleId = serializers.CharField(source='article_identification_number')
-    userId = serializers.SerializerMethodField()
-    createdAt = serializers.DateTimeField(source='created_at')
-    updatedAt = serializers.DateTimeField(source='accepted_at')
-    facultyCoauthors = serializers.SerializerMethodField()
-    webpage = serializers.URLField(source='web_page')
+    class Meta(BaseUserSerializer.Meta):
+        fields = BaseUserSerializer.Meta.fields + ['password']
+        extra_kwargs = {
+            'username': {'required': False},
+            'email': {'required': False},
+            'first_name_rus': {'required': False},
+            'second_name_rus': {'required': False},
+        }
 
+    def validate_username(self, value):
+        if value and User.objects.exclude(pk=self.instance.pk).filter(username=value).exists():
+            raise serializers.ValidationError("Пользователь с таким именем уже существует")
+        return value
+
+    def validate_email(self, value):
+        if value and User.objects.exclude(pk=self.instance.pk).filter(email=value).exists():
+            raise serializers.ValidationError("Пользователь с таким email уже существует")
+        return value
+
+    def validate_group(self, value):
+        if value and value not in ['SPbU', 'POMI']:
+            raise serializers.ValidationError("Группа должна быть SPbU или POMI")
+        return value
+
+    def validate_year(self, value, field_name):
+        if value is not None:
+            current_year = datetime.now().year
+            if value < 1900 or value > current_year + 10:
+                raise serializers.ValidationError(f"{field_name} должен быть между 1900 и {current_year + 10}")
+        return value
+
+    def validate_year_of_birth(self, value):
+        return self.validate_year(value, "Год рождения")
+
+    def validate_year_of_graduation(self, value):
+        return self.validate_year(value, "Год окончания")
+
+    def validate_year_of_degree(self, value):
+        return self.validate_year(value, "Год получения степени")
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+
+        for attr, value in validated_data.items():
+            if value is not None:
+                setattr(instance, attr, value)
+
+        if password:
+            instance.set_password(password)
+
+        instance.save()
+        return instance
+
+
+class BasePostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
@@ -133,64 +202,285 @@ class PublicationSerializer(serializers.ModelSerializer):
         return obj.authors.count() > 1
 
 
+class BaseExternalAuthorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExternalPublicationAuthor
+        fields = ['id', 'author_name']
 
-class PublicationCreateSerializer(serializers.ModelSerializer):
-    authors = serializers.CharField(write_only=True, required=True)
 
-    title = serializers.CharField(write_only=True, required=False)
-    receivedDate = serializers.DateField(write_only=True, required=False, source='received_date')
-    decisionDate = serializers.DateField(write_only=True, required=False, source='decision_date')
-    publishedDate = serializers.DateField(write_only=True, required=False, source='published_date')
-    journal = serializers.CharField(write_only=True, required=False, source='journal_name')
-    pages = serializers.CharField(write_only=True, required=False)
-    volume = serializers.CharField(write_only=True, required=False, source='tome')
-    issue = serializers.CharField(write_only=True, required=False, source='number')
-    articleId = serializers.CharField(write_only=True, required=False, source='article_identification_number')
-    webpage = serializers.URLField(write_only=True, required=False, source='web_page')
-    facultyCoauthors = serializers.BooleanField(write_only=True, required=False, source='has_faculty_coauthors')
+class BasePostWithDetailsMixin:
+    details = serializers.SerializerMethodField()
+
+    def get_details(self, obj):
+        if hasattr(obj, 'post') and hasattr(obj.post, 'type'):
+            return self.get_specific_details(obj)
+        return {}
+
+    def get_specific_details(self, obj):
+        raise NotImplementedError("Должен быть реализован в дочернем классе")
+
+
+class BaseCreateUpdateMixin:
+    def handle_external_authors(self, instance, external_authors):
+        if external_authors is not None:
+            instance.external_authors.all().delete()
+            for author_name in external_authors:
+                if author_name.strip():
+                    ExternalPublicationAuthor.objects.create(
+                        publication=instance,
+                        author_name=author_name.strip()
+                    )
+
+
+class PostSerializer(BasePostSerializer):
+    pass
+
+
+class PublicationReadSerializer(serializers.ModelSerializer):
+    external_authors = BaseExternalAuthorSerializer(many=True, read_only=True)
+    external_authors_list = serializers.SerializerMethodField()
 
     class Meta:
-        model = Post
+        model = Publication
         fields = [
-            'type', 'title', 'authors', 'receivedDate', 'decisionDate', 'publishedDate',
-            'journal', 'volume', 'issue', 'articleId', 'pages', 'year', 'language',
-            'webpage', 'facultyCoauthors', 'comment'
+            'id', 'current_status', 'title', 'language', 'preprint_date',
+            'preprint_number', 'preprint_document_file_path', 'submission_date',
+            'journal_name', 'journal_issn', 'submission_document_file_path',
+            'acceptance_date', 'doi', 'accepted_document_file_path',
+            'publication_date', 'journal_volume', 'journal_number',
+            'journal_pages_or_article_number', 'journal_level',
+            'publicated_document_file_path', 'external_authors', 'external_authors_list'
         ]
 
+    def get_external_authors_list(self, obj):
+        return [author.author_name for author in obj.external_authors.all()]
+
+
+class PresentationReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Presentation
+        fields = [
+            'id', 'title', 'language', 'description',
+            'presentation_place', 'presentation_date'
+        ]
+
+
+class PostWithDetailsSerializer(serializers.Serializer):
+    post = PostSerializer()
+    details = serializers.SerializerMethodField()
+
+    def get_details(self, obj):
+        post_instance = obj.get('post')
+        if not post_instance:
+            return {}
+
+        post_type = post_instance.type
+
+        if post_type == 'publication' and hasattr(post_instance, 'publication'):
+            publication = post_instance.publication
+            serializer = PublicationReadSerializer(publication)
+            detail_data = serializer.data
+            return detail_data
+
+        elif post_type == 'presentation' and hasattr(post_instance, 'presentation'):
+            presentation = post_instance.presentation
+            serializer = PresentationReadSerializer(presentation)
+            return serializer.data
+
+        return {}
+
+
+class PostCreateSerializer(BasePostSerializer):
+    class Meta(BasePostSerializer.Meta):
+        fields = ['type', 'comment']
+
+
+class BaseDetailCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        abstract = True
+        exclude = ['id', 'post']
+
+
+class PublicationCreateSerializer(BaseDetailCreateSerializer, BaseCreateUpdateMixin):
+    external_authors_list = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        default=[]
+    )
+
+    class Meta(BaseDetailCreateSerializer.Meta):
+        model = Publication
+
     def create(self, validated_data):
+        external_authors = validated_data.pop('external_authors_list', [])
+        publication = super().create(validated_data)
+        self.handle_external_authors(publication, external_authors)
+        return publication
 
-        authors_string = validated_data.pop('authors')
-        volume = validated_data.pop('tome', None)
-        if volume and volume != 'string':
-            try:
-                validated_data['tome'] = int(volume)
-            except (ValueError, TypeError):
-                validated_data['tome'] = None
-        else:
-            validated_data['tome'] = None
+    def update(self, instance, validated_data):
+        external_authors = validated_data.pop('external_authors_list', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        self.handle_external_authors(instance, external_authors)
+        return instance
 
 
-        issue = validated_data.pop('number', None)
-        if issue and issue != 'string':
-            try:
-                validated_data['number'] = int(issue)
-            except (ValueError, TypeError):
-                validated_data['number'] = None
-        else:
-            validated_data['number'] = None
+class PresentationCreateSerializer(BaseDetailCreateSerializer):
+    class Meta(BaseDetailCreateSerializer.Meta):
+        model = Presentation
 
+
+class PostWithDetailsCreateSerializer(serializers.Serializer):
+    post = PostCreateSerializer()
+    details = serializers.DictField()
+
+    def create(self, validated_data):
         request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            raise serializers.ValidationError("Пользователь не авторизован")
 
-        if not request or not hasattr(request, 'user'):
-            raise serializers.ValidationError("Пользователь не аутентифицирован")
+        post_data = validated_data['post']
+        details_data = validated_data['details']
+        post_type = post_data['type']
 
         post = Post.objects.create(
-            authors_string=authors_string,
-            created_by=request.user,
-            **validated_data
+            type=post_type,
+            comment=post_data.get('comment', '')
         )
+        PostAuthor.objects.create(post=post, user=request.user)
+
+        if post_type == 'publication':
+            self.create_publication(post, details_data)
+        elif post_type == 'presentation':
+            self.create_presentation(post, details_data)
+        else:
+            post.delete()
+            raise serializers.ValidationError(f"Неподдерживаемый тип поста: {post_type}")
 
         return post
+
+    def create_publication(self, post, details_data):
+        external_authors = details_data.pop('external_authors_list', [])
+
+        serializer = PublicationCreateSerializer(data=details_data, context=self.context)
+        serializer.is_valid(raise_exception=True)
+        publication = serializer.save(post=post)
+
+        for author_name in external_authors:
+            ExternalPublicationAuthor.objects.create(
+                publication=publication,
+                author_name=author_name.strip()
+            )
+
+    def create_presentation(self, post, details_data):
+        serializer = PresentationCreateSerializer(data=details_data, context=self.context)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(post=post)
+
+
+class YearReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = YearReport
+        fields = ['id', 'year', 'report_text', 'status', 'admin_comment', 'created_at', 'updated_at']
+
+class ScienceReportSubmitSerializer(serializers.Serializer):
+    year_report = serializers.CharField(required=True, allow_blank=False)
+
+    def validate_year_report(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Текст отчета не может быть пустым")
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError("Отчет слишком короткий")
+        return value.strip()
+
+class ScienceReportStatusUpdateSerializer(serializers.Serializer):
+    new_status = serializers.ChoiceField(choices=['to_rework', 'signed'], required=True)
+    admin_comment = serializers.CharField(required=False,  allow_blank=True, default='')
+
+    def validate_new_status(self, value):
+        if value not in ['to_rework', 'signed']:
+            raise serializers.ValidationError("Недопустимый статус")
+        return value
+
+    def validate_admin_comment(self, value):
+        if value and len(value.strip()) > 1000:
+            raise serializers.ValidationError("Комментарий слишком длинный (максимум 1000 символов)")
+        return value.strip()
+
+
+########################################################################################
+#хз нужны ли эти сериализаторы
+# class PublicationSerializer(BasePostSerializer):
+#     class Meta:
+#         model = Publication
+#         fields = '__all__'
+
+
+class MonographSerializer(BasePostSerializer):
+    class Meta:
+        model = Monograph
+        fields = '__all__'
+
+# class PresentationSerializer(BasePostSerializer):
+#     class Meta:
+#         model = Presentation
+#         fields = '__all__'
+
+class LectureSerializer(BasePostSerializer):
+    class Meta:
+        model = Lecture
+        fields = '__all__'
+
+
+class PatentSerializer(BasePostSerializer):
+    class Meta:
+        model = Patent
+        fields = '__all__'
+
+
+class SupervisionSerializer(BasePostSerializer):
+    class Meta:
+        model = Supervision
+        fields = '__all__'
+
+
+class EditingSerializer(BasePostSerializer):
+    class Meta:
+        model = Editing
+        fields = '__all__'
+
+
+class EditorialBoardSerializer(BasePostSerializer):
+    class Meta:
+        model = EditorialBoard
+        fields = '__all__'
+
+
+class OrgWorkSerializer(BasePostSerializer):
+    class Meta:
+        model = OrgWork
+        fields = '__all__'
+
+
+class OppositionSerializer(BasePostSerializer):
+    class Meta:
+        model = Opposition
+        fields = '__all__'
+
+
+class GrantSerializer(BasePostSerializer):
+    class Meta:
+        model = Grant
+        fields = '__all__'
+
+
+class AwardSerializer(BasePostSerializer):
+    class Meta:
+        model = Award
+        fields = '__all__'
 
 
 class OwnerCheckSerializer(serializers.Serializer):
@@ -200,17 +490,22 @@ class OwnerCheckSerializer(serializers.Serializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    group = serializers.ChoiceField(choices=[('SPbU', 'СПбГУ'), ('POMI', 'ПОМИ')], required=True)
 
     class Meta:
         model = User
         fields = [
-            'username', 'email', 'password',
-            'first_name', 'last_name', 'middle_name'
+            'username', 'email', 'password', 'group',
+            'first_name_rus', 'second_name_rus', 'middle_name_rus',
+            'first_name_eng', 'second_name_eng', 'middle_name_eng',
+            'year_of_birth', 'year_of_graduation',
+            'academic_degree', 'year_of_degree', 'position'
         ]
         extra_kwargs = {
-            'first_name': {'required': True},
-            'last_name': {'required': True},
-            'middle_name': {'required': False, 'allow_blank': True}
+            'first_name_rus': {'required': True},
+            'second_name_rus': {'required': True},
+            'middle_name_rus': {'required': False, 'allow_blank': True},
+            'email': {'required': True},
         }
 
     def validate(self, attrs):
@@ -222,32 +517,31 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return attrs
 
-
     def create(self, validated_data):
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            middle_name=validated_data.get('middle_name', '')
+            first_name_rus=validated_data['first_name_rus'],
+            second_name_rus=validated_data['second_name_rus'],
+            middle_name_rus=validated_data.get('middle_name_rus', ''),
+            first_name_eng=validated_data.get('first_name_eng', ''),
+            second_name_eng=validated_data.get('second_name_eng', ''),
+            middle_name_eng=validated_data.get('middle_name_eng', ''),
+            group=validated_data['group'],
+            year_of_birth=validated_data.get('year_of_birth'),
+            year_of_graduation=validated_data.get('year_of_graduation'),
+            academic_degree=validated_data.get('academic_degree', ''),
+            year_of_degree=validated_data.get('year_of_degree'),
+            position=validated_data.get('position', ''),
         )
         return user
 
 
 class UserListSerializer(serializers.ModelSerializer):
-    role = serializers.SerializerMethodField()
-    department = serializers.CharField(source='laboratory', allow_null=True)
-
     class Meta:
         model = User
-        fields = [
-            'id', 'username', 'email', 'first_name', 'last_name', 'middle_name',
-            'department', 'role'
-        ]
-
-    def get_role(self, obj):
-        return 'admin' if obj.is_admin else 'user'
+        fields = '__all__'
 
 class ReportSerializer(serializers.ModelSerializer):
     download_url = serializers.SerializerMethodField()
@@ -264,12 +558,11 @@ class ReportSerializer(serializers.ModelSerializer):
 class ReportCreateSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(write_only=True)
     year = serializers.IntegerField()
-    format = serializers.ChoiceField(choices=Report.REPORT_FORMATS)
     type = serializers.ChoiceField(choices=Report.REPORT_TYPES, source='report_type')
 
     class Meta:
         model = Report
-        fields = ['user_id', 'year', 'format', 'type']
+        fields = ['user_id', 'year', 'type']
 
     def validate_user_id(self, value):
         try:
