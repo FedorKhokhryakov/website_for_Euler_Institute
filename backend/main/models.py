@@ -33,10 +33,10 @@ class User(AbstractUser):
 class Role(models.Model):
     ROLE_CHOICES = [
         ('MasterAdmin', 'Главный администратор'),
-        ('SPbUAdmin', 'Администратор СПбГУ'),
-        ('POMIAdmin', 'Администратор ПОМИ'),
-        ('SPbUUser', 'Пользователь СПбГУ'),
-        ('POMIUser', 'Пользователь ПОМИ'),
+        ('AdminSPbU', 'Администратор СПбГУ'),
+        ('AdminPOMI', 'Администратор ПОМИ'),
+        ('UserSPbU', 'Пользователь СПбГУ'),
+        ('UserPOMI', 'Пользователь ПОМИ'),
     ]
 
     name = models.CharField(max_length=20, choices=ROLE_CHOICES, unique=True)
@@ -86,8 +86,14 @@ class PostAuthor(models.Model):
 
 
 class Publication(models.Model):
+    class Status(models.TextChoices):
+        PREPRINT = "preprint", "Препринт"
+        SUBMITTED = "submitted", "Отправлено"
+        ACCEPTED = "accepted", "Принято"
+        PUBLISHED = "published", "Опубликовано"
+
     post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name='publication')
-    current_status = models.CharField(max_length=20)
+    current_status = models.CharField(max_length=20, choices=Status.choices, default=Status.PREPRINT)
 
     title = models.CharField(max_length=255)
     language = models.CharField(max_length=50)

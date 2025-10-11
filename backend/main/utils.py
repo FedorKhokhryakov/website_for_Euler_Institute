@@ -1,9 +1,12 @@
-from main.serializer import *
+from .serializer import *
+from datetime import date, datetime
 
 
 def is_admin_user(user):
     admin_roles = ['MasterAdmin', 'SPbUAdmin', 'POMIAdmin']
-    user_role_names = [role.name for role in user.roles.all()]
+
+    user_roles = user.roles.all().select_related('role')
+    user_role_names = [user_role.role.name for user_role in user_roles]
 
     return any(role in admin_roles for role in user_role_names)
 
@@ -75,7 +78,7 @@ def get_post_details(post):
 
 
 def update_post_details(post, details_data):
-    from main.serializer import PublicationCreateSerializer, PresentationCreateSerializer
+    from .serializer import PublicationCreateSerializer, PresentationCreateSerializer
     errors = {}
 
     try:
@@ -213,3 +216,134 @@ def get_post_details(post):
         }
 
     return {}
+
+def quarter_to_dates(quarter: int, year: int):
+    if quarter == 1:
+        return date(year, 1, 1), date(year, 3, 31)
+    if quarter == 2:
+        return date(year, 4, 1), date(year, 6, 30)
+    if quarter == 3:
+        return date(year, 7, 1), date(year, 9, 30)
+    if quarter == 4:
+        return date(year, 10, 1), date(year, 12, 31)
+    raise ValueError("quarter must be from 1 to 4")
+
+
+def get_period(data: dict):
+    load_type = data.get("load_type")
+    if load_type == "quarterly":
+        start_q = data["start_quarter"]
+        end_q = data["end_quarter"]
+        start_quarter = int(start_q["quarter"])
+        start_year = int(start_q["year"])
+        end_quarter = int(end_q["quarter"])
+        end_year = int(end_q["year"])
+        start_date, _ = quarter_to_dates(start_quarter, start_year)
+        _, end_date = quarter_to_dates(end_quarter, end_year)
+    elif load_type == "yearly":
+        year = int(data["year"]) 
+        start_date, end_date = date(year, 1, 1), date(year, 12, 31)
+    else:
+        raise ValueError("load_type must be quarterly or yearly")
+    return start_date, end_date
+
+def get_publication_status_on_date(publication, target_date):
+    if publication.publication_date and publication.publication_date <= target_date:
+        return "published"
+    elif publication.acceptance_date and publication.acceptance_date <= target_date:
+        return "accepted"
+    elif publication.submission_date and publication.submission_date <= target_date:
+        return "submitted"
+    elif publication.preprint_date and publication.preprint_date <= target_date:
+        return "preprint"
+    return None
+
+def format_publication_for_rtf(publication, target_date):
+    status = get_publication_status_on_date(publication, target_date)
+    if not status:
+        return None
+
+    def get_author_initials(user):
+        parts = []
+        if user.second_name_rus:
+            parts.append(user.second_name_rus)
+        if user.first_name_rus:
+            parts.append(f"{user.first_name_rus[0]}.")
+        if user.middle_name_rus:
+            parts.append(f"{user.middle_name_rus[0]}.")
+        return " ".join(parts) if parts else user.username
+
+    internal_authors = [get_author_initials(p_a.user) for p_a in publication.post.authors.all()]
+    
+    external_authors = [e_a.author_name for e_a in publication.external_authors.all()]
+    
+    all_authors = internal_authors + external_authors
+    authors_str = ", ".join(all_authors)
+
+    title = publication.title or "Без названия"
+    placeholder_file = "[файл]"
+
+    if status == "preprint" and publication.preprint_date:
+        year = publication.preprint_date.year
+        preprint_number = publication.preprint_number or ""
+        return f"{authors_str}. {title} // Препринт - {year} - {preprint_number} - {placeholder_file}"
+
+    elif status == "submitted" and publication.submission_date:
+        year = publication.submission_date.year
+        journal_name = publication.journal_name or ""
+        journal_issn = publication.journal_issn or ""
+        return f"{authors_str}. {title} // {journal_name} - {year} - {journal_issn} - {placeholder_file}"
+
+    elif status == "accepted" and publication.acceptance_date:
+        year = publication.acceptance_date.year
+        journal_name = publication.journal_name or ""
+        doi = publication.doi or ""
+        return f"{authors_str}. {title} // {journal_name} - {year} - {doi} - {placeholder_file}"
+
+    elif status == "published" and publication.publication_date:
+        year = publication.publication_date.year
+        journal_name = publication.journal_name or ""
+        volume = publication.journal_volume or ""
+        number = publication.journal_number or ""
+        pages = publication.journal_pages_or_article_number or ""
+        return f"{authors_str}: {title} // {journal_name} - {year} - том {volume}, номер {number} - {pages} - {placeholder_file}"
+
+    return None
+
+def collect_user_activity(user, start_date, end_date, include_publications=True, include_presentations=True, only_published=False):
+    activity_lines = []
+
+    if include_publications:
+        publications = Publication.objects.filter(post__authors__user=user).distinct()
+        for pub in publications:
+            target_date = end_date
+            status = get_publication_status_on_date(pub, target_date)
+            if not status:
+                continue
+            if only_published and status != "published":
+                continue
+
+            line = format_publication_for_rtf(pub, target_date)
+            if line:
+                activity_lines.append(line)
+
+    if include_presentations:
+        presentations = Presentation.objects.filter(post__authors__user=user).distinct()
+        for pres in presentations:
+            pres_date = pres.presentation_date
+            if pres_date and start_date <= pres_date <= end_date:
+                title = pres.title or "Без названия"
+                place = pres.presentation_place or ""
+                line = f"{title} // {place} - {pres_date.isoformat()}"
+                activity_lines.append(line)
+
+    return activity_lines
+
+def get_target_users(user_type, user_id=None):
+    if user_type == "all":
+        return User.objects.all()
+    elif user_type == "certain":
+        return User.objects.filter(id=user_id)
+    elif user_type in ["POMI", "SPbU"]:
+        return User.objects.filter(group=user_type)
+    return User.objects.none()

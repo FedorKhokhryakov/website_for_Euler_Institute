@@ -78,7 +78,8 @@ class UserInfoSerializer(BaseUserSerializer):
 
     def get_roles(self, obj):
         user_roles = obj.roles.all()
-        return RoleSerializer(user_roles, many=True).data
+        role_objects = [user_role.role for user_role in user_roles]
+        return RoleSerializer(role_objects, many=True).data
 
     def get_is_admin(self, obj):
         return is_admin_user(obj)
