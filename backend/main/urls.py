@@ -27,6 +27,10 @@ urlpatterns = [
 
     path('api/get_all_users/', api_views.get_all_users, name='get_all_users'),
 
+    path('api/impersonate/start/', api_views.impersonate_start, name='impersonate_start'),
+    path('api/impersonate/stop/', api_views.impersonate_stop, name='impersonate_stop'),
+    path('api/impersonate/status/', api_views.impersonate_status, name='impersonate_status'),
+
     path('api/get_year_report/<int:year>/', api_views.get_year_report, name='get_year_report'),
     path('api/get_science_report_on_checking/<int:year>/', api_views.submit_science_report_on_checking, name='get_science_report'),
     path('api/set_science_report_new_status/<int:user_id>/<int:year>/', api_views.set_science_report_new_status, name='set_science_report_status'),

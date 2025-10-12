@@ -1,5 +1,6 @@
 from .serializer import *
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 
 
 def is_admin_user(user):
@@ -136,9 +137,10 @@ def have_enough_rights(current_user, target_user):
 
     if is_master_admin(current_user):
         return True
-
+    print(7777)
     current_user_groups = get_user_admin_groups(current_user)
     target_user_group = target_user.group
+    print(8888)
 
     if target_user_group in current_user_groups:
         return True
@@ -163,14 +165,17 @@ def can_user_delete_user(current_user, target_user):
 
     return True, ""
 
+
 def get_user_admin_groups(user):
     groups = []
-    if user.roles.filter(name='MasterAdmin').exists():
+
+    if UserRole.objects.filter(user=user, role__name='MasterAdmin').exists():
         groups.extend(['SPbU', 'POMI'])
-    if user.roles.filter(name='SPbUAdmin').exists():
+    if UserRole.objects.filter(user=user, role__name='AdminSPbU').exists():
         groups.append('SPbU')
-    if user.roles.filter(name='POMIAdmin').exists():
+    if UserRole.objects.filter(user=user, role__name='AdminPOMI').exists():
         groups.append('POMI')
+
     return groups
 
 def get_post_details(post):
@@ -347,3 +352,99 @@ def get_target_users(user_type, user_id=None):
     elif user_type in ["POMI", "SPbU"]:
         return User.objects.filter(group=user_type)
     return User.objects.none()
+
+
+def can_impersonate_user(admin_user, target_user):
+    if not is_admin_user(admin_user):
+        return False
+
+    if is_master_admin(admin_user):
+        return True
+
+    admin_groups = get_user_admin_groups(admin_user)
+    return target_user.group in admin_groups
+
+
+def create_impersonation_tokens(impersonator, target_user):
+    target_refresh = RefreshToken.for_user(target_user)
+    target_access = target_refresh.access_token
+
+    target_access['is_impersonating'] = True
+    target_access['impersonator_id'] = impersonator.id
+    target_access['impersonator_username'] = impersonator.username
+
+    context_refresh = RefreshToken()
+    context_refresh['user_id'] = impersonator.id
+    context_refresh['target_user_id'] = target_user.id
+    context_refresh['is_context_token'] = True
+    context_refresh['exp'] = datetime.now() + timedelta(hours=24)
+
+    return {
+        'token': str(target_access),
+        'context_token': str(context_refresh),
+    }
+
+
+def validate_context_token(context_token):
+    try:
+        token = RefreshToken(context_token)
+        if not token.get('is_context_token', False):
+            return None, "Неверный тип токена"
+
+        impersonator_id = token.get('user_id')
+        target_user_id = token.get('target_user_id')
+
+        if not impersonator_id or not target_user_id:
+            return None, "Неверный формат токена"
+
+        try:
+            impersonator = User.objects.get(id=impersonator_id)
+            target_user = User.objects.get(id=target_user_id)
+
+            active_session = ImpersonationSession.objects.filter(
+                impersonator=impersonator,
+                target_user=target_user,
+                is_active=True
+            ).first()
+
+            if not active_session:
+                return None, "Сессия имперсонализации неактивна"
+
+            return {
+                'impersonator': impersonator,
+                'target_user': target_user,
+                'session': active_session
+            }, None
+
+        except User.DoesNotExist:
+            return None, "Пользователь не найден"
+
+    except Exception as e:
+        return None, f"Неверный токен: {str(e)}"
+
+
+def get_impersonation_status(user, token):
+    try:
+        access_token = AccessToken(token)
+        is_impersonating = access_token.get('is_impersonating', False)
+
+        if is_impersonating:
+            impersonator_id = access_token.get('impersonator_id')
+            try:
+                impersonator = User.objects.get(id=impersonator_id)
+                return {
+                    'is_impersonating': True,
+                    'impersonator': {
+                        'id': impersonator.id,
+                        'username': impersonator.username,
+                        'first_name_rus': impersonator.first_name_rus,
+                        'second_name_rus': impersonator.second_name_rus,
+                    }
+                }
+            except User.DoesNotExist:
+                return {'is_impersonating': False}
+
+        return {'is_impersonating': False}
+
+    except Exception:
+        return {'is_impersonating': False}
