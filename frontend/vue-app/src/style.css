@@ -1,6 +1,6 @@
 :root {
-  --color-primary: #2e7d32;
-  --color-primary-dark: #1b5e20;
+  --color-primary: #1b5e20;
+  --color-primary-dark: #0d3c13;
   --color-secondary: #b71c1c;
   --color-secondary-dark: #8e0000;
   --color-background: #ffffff;
@@ -12,4 +12,8 @@
   --color-surface-dark: #f5f5f5;
   --color-hover-dark: #e0e0e0;
   --color-text-secondary: #666666;
+  --color-impersonation: #2e7d32;
+  --color-impersonation-dark: #1b5e20;
+  --color-success: #28a745;
+  --color-success-dark: #218838;
 }

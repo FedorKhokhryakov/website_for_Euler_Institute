@@ -30,10 +30,10 @@
       <div class="form-row">
         <label>Внешние авторы:</label>
         <div class="authors-container">
-          <div v-for="(author, index) in formData.external_authors" :key="index" class="author-input">
+          <div v-for="(author, index) in formData.external_authors_list" :key="index" class="author-input">
             <input 
               type="text" 
-              v-model="formData.external_authors[index]" 
+              v-model="formData.external_authors_list[index]" 
               :placeholder="`Автор ${index + 1}`"
             >
             <button type="button" @click="removeExternalAuthor(index)" class="btn-remove">×</button>
@@ -41,95 +41,134 @@
           <button type="button" @click="addExternalAuthor" class="btn-add-author">+ Добавить автора</button>
         </div>
       </div>
+
+      <div class="form-row">
+        <label>Соавторы с факультета:</label>
+        <div class="authors-container">
+          <div v-for="(authorId, index) in formData.internal_authors_list" :key="index" class="author-input">
+            <div class="searchable-select">
+              <input
+                type="text"
+                v-model="searchQueries[index]"
+                :placeholder="`Поиск сотрудника...`"
+                class="form-select search-input"
+                @focus="openDropdown(index)"
+                @input="handleSearchInput(index)"
+              />
+              <div v-if="activeDropdownIndex === index && filteredUsers(index).length > 0" class="dropdown">
+                <div
+                  v-for="user in filteredUsers(index)"
+                  :key="user.id"
+                  class="dropdown-item"
+                  @click="selectInternalAuthor(index, user)"
+                >
+                  {{ getUserDisplayName(user) }}
+                </div>
+              </div>
+              <div v-if="activeDropdownIndex === index && filteredUsers(index).length === 0" class="dropdown">
+                <div class="dropdown-item no-results">
+                  Сотрудники не найдены
+                </div>
+              </div>
+            </div>
+            <button type="button" @click="removeInternalAuthor(index)" class="btn-remove">×</button>
+          </div>
+          <button type="button" @click="addInternalAuthor" class="btn-add-author">
+            + Добавить соавтора
+          </button>
+        </div>
+      </div>
+    
       <div class="checkbox-row">
         <label>Направлено на публикацию: </label>
         <div class="checkbox-section">
           <input type="checkbox" v-model="showSubmissionFields">
         </div>
       </div>
-    </div>
 
-
-    <div v-if="showSubmissionFields" class="form-section">
-      <h4>Данные об отправке в журнал</h4>
-      
-      <div class="form-row">
-        <label for="submission_date">Дата отправки:</label>
-        <input type="date" id="submission_date" v-model="formData.submission_date">
-      </div>
-
-      <div class="form-row">
-        <label for="journal_name">Название журнала:</label>
-        <input type="text" id="journal_name" v-model="formData.journal_name">
-      </div>
-
-      <div class="form-row">
-        <label for="journal_issn">ISSN журнала:</label>
-        <input type="text" id="journal_issn" v-model="formData.journal_issn">
-      </div>
-
-      <div class="checkbox-row">
-        <label>Принято к публикации: </label>
-        <div class="checkbox-section">
-          <input type="checkbox" v-model="showAcceptanceFields">
+      <div v-if="showSubmissionFields" class="form-section">
+        <h3>Данные об отправке в журнал</h3>
+        
+        <div class="form-row">
+          <label for="submission_date">Дата отправки:</label>
+          <input type="date" id="submission_date" v-model="formData.submission_date">
         </div>
-      </div>
-    </div>
 
-    <div v-if="showAcceptanceFields" class="form-section">
-      <h4>Данные о принятии статьи</h4>
-      
-      <div class="form-row">
-        <label for="acceptance_date">Дата принятия:</label>
-        <input type="date" id="acceptance_date" v-model="formData.acceptance_date">
-      </div>
-
-      <div class="form-row">
-        <label for="doi">DOI:</label>
-        <input type="text" id="doi" v-model="formData.doi">
-      </div>
-
-      <div class="checkbox-row">
-        <label>Опубликовано: </label>
-        <div class="checkbox-section">
-          <input type="checkbox" v-model="showPublicationFields">
+        <div class="form-row">
+          <label for="journal_name">Название журнала:</label>
+          <input type="text" id="journal_name" v-model="formData.journal_name">
         </div>
-      </div>
-    </div>
 
-    <div v-if="showPublicationFields" class="form-section">
-      <h4>Данные о публикации</h4>
-      
-      <div class="form-row">
-        <label for="publication_date">Дата публикации:</label>
-        <input type="date" id="publication_date" v-model="formData.publication_date">
-      </div>
+        <div class="form-row">
+          <label for="journal_issn">ISSN журнала:</label>
+          <input type="text" id="journal_issn" v-model="formData.journal_issn">
+        </div>
 
-      <div class="form-row triple-column">
-        <label>Детали публикации:</label>
-        <div class="multi-input-container">
-          <div class="input-group">
-            <input type="text" v-model="formData.journal_volume" placeholder="Том">
-          </div>
-          <div class="input-group">
-            <input type="text" v-model="formData.journal_number" placeholder="Номер">
-          </div>
-          <div class="input-group">
-            <input type="text" v-model="formData.journal_pages_or_article_number" placeholder="Страницы/Номер статьи">
+        <div class="checkbox-row">
+          <label>Принято к публикации: </label>
+          <div class="checkbox-section">
+            <input type="checkbox" v-model="showAcceptanceFields">
           </div>
         </div>
       </div>
 
-      <div class="checkbox-row">
-        <label for="journal_level">Уровень журнала:</label>
-        <input type="text" id="journal_level" v-model="formData.journal_level">
+      <div v-if="showAcceptanceFields" class="form-section">
+        <h3>Данные о принятии статьи</h3>
+        
+        <div class="form-row">
+          <label for="acceptance_date">Дата принятия:</label>
+          <input type="date" id="acceptance_date" v-model="formData.acceptance_date">
+        </div>
+
+        <div class="form-row">
+          <label for="doi">DOI:</label>
+          <input type="text" id="doi" v-model="formData.doi">
+        </div>
+
+        <div class="checkbox-row">
+          <label>Опубликовано: </label>
+          <div class="checkbox-section">
+            <input type="checkbox" v-model="showPublicationFields">
+          </div>
+        </div>
+      </div>
+
+      <div v-if="showPublicationFields" class="form-section">
+        <h3>Данные о публикации</h3>
+        
+        <div class="form-row">
+          <label for="publication_date">Дата публикации:</label>
+          <input type="date" id="publication_date" v-model="formData.publication_date">
+        </div>
+
+        <div class="form-row triple-column">
+          <label>Детали публикации:</label>
+          <div class="multi-input-container">
+            <div class="input-group">
+              <input type="text" v-model="formData.journal_volume" placeholder="Том">
+            </div>
+            <div class="input-group">
+              <input type="text" v-model="formData.journal_number" placeholder="Номер">
+            </div>
+            <div class="input-group">
+              <input type="text" v-model="formData.journal_pages_or_article_number" placeholder="Страницы/Номер статьи">
+            </div>
+          </div>
+        </div>
+
+        <div class="checkbox-row">
+          <label for="journal_level">Уровень журнала:</label>
+          <input type="text" id="journal_level" v-model="formData.journal_level">
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, watch, computed, nextTick } from 'vue'
+import { ref, reactive, watch, computed, nextTick, onMounted, onUnmounted} from 'vue'
+import { usersAPI } from '../../services/api.js'
+import { useAuthStore } from '../../stores/auth'
 
 const props = defineProps({
   modelValue: {
@@ -144,8 +183,12 @@ const emit = defineEmits(['update:modelValue'])
 const showSubmissionFields = ref(false)
 const showAcceptanceFields = ref(false)
 const showPublicationFields = ref(false)
-
 const isUpdating = ref(false)
+const availableUsers = ref([])
+const isLoadingUsers = ref(false)
+const authStore = useAuthStore()
+const activeDropdownIndex = ref(-1)
+const searchQueries = ref([''])
 
 const currentStatus = computed(() => {
   if (showPublicationFields.value) return 'published'
@@ -154,13 +197,78 @@ const currentStatus = computed(() => {
   return 'preprint'
 })
 
+const filteredUsers = (index) => {
+  const query = searchQueries.value[index] || ''
+  if (!query.trim()) {
+    return availableUsers.value.filter(user => 
+      !isUserSelected(user.id) || formData.internal_authors_list[index] === user.id
+    )
+  }
+  
+  const searchTerm = query.toLowerCase()
+  return availableUsers.value.filter(user => {
+    const userName = getUserDisplayName(user).toLowerCase()
+    const isAvailable = !isUserSelected(user.id) || formData.internal_authors_list[index] === user.id
+    return isAvailable && userName.includes(searchTerm)
+  })
+}
+
+const openDropdown = (index) => {
+  activeDropdownIndex.value = index
+  while (searchQueries.value.length <= index) {
+    searchQueries.value.push('')
+  }
+  
+  const currentUserId = formData.internal_authors_list[index]
+  if (currentUserId) {
+    const currentUser = availableUsers.value.find(user => user.id === currentUserId)
+    if (currentUser) {
+      searchQueries.value[index] = getUserDisplayName(currentUser)
+    }
+  }
+}
+
+const handleSearchInput = (index) => {
+  activeDropdownIndex.value = index
+}
+
+const selectInternalAuthor = (index, user) => {
+  formData.internal_authors_list[index] = user.id
+  searchQueries.value[index] = getUserDisplayName(user)
+  activeDropdownIndex.value = -1
+}
+
+const addInternalAuthor = () => {
+  formData.internal_authors_list.push('')
+  searchQueries.value.push('')
+}
+
+const removeInternalAuthor = (index) => {
+  if (formData.internal_authors_list.length > 0) {
+    formData.internal_authors_list.splice(index, 1)
+    searchQueries.value.splice(index, 1)
+  }
+}
+
+const isUserSelected = (userId) => {
+  return formData.internal_authors_list.includes(userId) && userId !== ''
+}
+
+const getUserDisplayName = (user) => {
+  const parts = []
+  if (user.second_name_rus) parts.push(user.second_name_rus)
+  if (user.first_name_rus) parts.push(user.first_name_rus)
+  if (user.middle_name_rus) parts.push(user.middle_name_rus)
+  return parts.join(' ') || user.username
+}
 
 const formData = reactive({
   title: '',
   language: '',
   preprint_date: '',
   preprint_number: '',
-  external_authors: [''],
+  external_authors_list: [''],
+  internal_authors_list: [], 
   
   submission_date: '',
   journal_name: '',
@@ -177,6 +285,40 @@ const formData = reactive({
 
   current_status: 'preprint'
 })
+
+const initializeSearchQueries = () => {
+  searchQueries.value = formData.internal_authors_list.map(userId => {
+    const user = availableUsers.value.find(u => u.id === userId)
+    return user ? getUserDisplayName(user) : ''
+  })
+  
+  if (searchQueries.value.length === 0) {
+    searchQueries.value = ['']
+  }
+}
+
+const loadAvailableUsers = async () => {
+  try {
+    isLoadingUsers.value = true
+
+    const response = await usersAPI.getAllUsers()
+
+    const filteredUsers = response.data.users.filter(user =>
+      user.id !== authStore.user?.id
+    )
+  
+
+    availableUsers.value = filteredUsers || []
+
+    initializeSearchQueries()
+
+  } catch (error) {
+    console.error('Ошибка загрузки пользователей:', error)
+    availableUsers.value = []
+  } finally {
+    isLoadingUsers.value = false
+  }
+}
 
 const prepareFormData = () => {
   const cleanedData = { ...formData }
@@ -197,10 +339,37 @@ const prepareFormData = () => {
     }
   })
   
-  cleanedData.external_authors = cleanedData.external_authors.filter(author => author.trim() !== '')
+  cleanedData.external_authors_list = cleanedData.external_authors_list.filter(author => author.trim() !== '')
+  
+  cleanedData.internal_authors_list = cleanedData.internal_authors_list.filter(id => id !== '')
   
   return cleanedData
 }
+
+const addExternalAuthor = () => {
+  formData.external_authors_list.push('')
+}
+
+const removeExternalAuthor = (index) => {
+  if (formData.external_authors_list.length > 0) {
+    formData.external_authors_list.splice(index, 1)
+  }
+}
+
+
+const handleClickOutside = (event) => {
+  const searchContainers = document.querySelectorAll('.searchable-select')
+  let isInside = false
+  searchContainers.forEach(container => {
+    if (container.contains(event.target)) {
+      isInside = true
+    }
+  })
+  if (!isInside) {
+    activeDropdownIndex.value = -1
+  }
+}
+
 
 watch(currentStatus, (newStatus) => {
   formData.current_status = newStatus
@@ -209,7 +378,6 @@ watch(currentStatus, (newStatus) => {
 watch(showSubmissionFields, (newValue) => {
   if (!newValue) {
     showAcceptanceFields.value = false
-
     formData.submission_date = ''
     formData.journal_name = ''
     formData.journal_issn = ''
@@ -219,7 +387,6 @@ watch(showSubmissionFields, (newValue) => {
 watch(showAcceptanceFields, (newValue) => {
   if (!newValue) {
     showPublicationFields.value = false
-
     formData.acceptance_date = ''
     formData.doi = ''
   }
@@ -234,16 +401,6 @@ watch(showPublicationFields, (newValue) => {
     formData.journal_level = ''
   }
 })
-
-const addExternalAuthor = () => {
-  formData.external_authors.push('')
-}
-
-const removeExternalAuthor = (index) => {
-  if (formData.external_authors.length > 1) {
-    formData.external_authors.splice(index, 1)
-  }
-}
 
 watch(formData, () => {
   if (isUpdating.value) return
@@ -273,14 +430,36 @@ watch(() => props.modelValue, (newValue, oldValue) => {
 
   Object.keys(formData).forEach(key => {
     if (newValue[key] !== undefined && formData[key] !== newValue[key]) {
-      formData[key] = newValue[key]
+      if (key === 'internal_authors_list' && Array.isArray(newValue[key])) {
+        formData[key] = newValue[key].filter(id => id !== authStore.user?.id)
+        nextTick(() => {
+          initializeSearchQueries()
+        })
+      } else {
+        formData[key] = newValue[key]
+      }
     }
   })
+  
+  if (!Array.isArray(formData.internal_authors_list)) {
+    formData.internal_authors_list = []
+    searchQueries.value = ['']
+  }
+
   
   nextTick(() => {
     isUpdating.value = false
   })
 }, { immediate: true })
+
+onMounted(() => {
+  loadAvailableUsers()
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <style scoped>
@@ -294,7 +473,7 @@ watch(() => props.modelValue, (newValue, oldValue) => {
   padding: 1rem;
 }
 
-.form-section h3, .form-section h4 {
+.form-section h3 {
   color: var(--color-primary);
   margin-bottom: 1rem;
   text-align: center;
@@ -304,13 +483,14 @@ watch(() => props.modelValue, (newValue, oldValue) => {
   display: grid;
   grid-template-columns: 200px 1fr;
   gap: 1rem;
-  align-items: center;
+  align-items: start;
   margin-bottom: 1rem;
 }
 
 .form-row label {
   font-weight: 600;
   text-align: right;
+  margin-top: 0.5rem;
 }
 
 .checkbox-row {
@@ -332,14 +512,6 @@ watch(() => props.modelValue, (newValue, oldValue) => {
   width: auto;
 }
 
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
-  color: var(--color-primary);
-}
-
 .authors-container {
   display: flex;
   flex-direction: column;
@@ -352,6 +524,10 @@ watch(() => props.modelValue, (newValue, oldValue) => {
   align-items: center;
 }
 
+.author-input select {
+  flex: 1;
+}
+
 .btn-remove {
   background: var(--color-secondary);
   color: white;
@@ -362,12 +538,21 @@ watch(() => props.modelValue, (newValue, oldValue) => {
   font-size: 1rem;
 }
 
+.btn-remove:hover {
+  background: var(--color-secondary-dark);
+}
+
 .btn-add-author {
   background: none;
   border: 1px dashed var(--color-border);
   padding: 0.5rem;
   cursor: pointer;
   color: var(--color-primary);
+}
+
+.btn-add-author:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .triple-column .multi-input-container {
@@ -392,5 +577,58 @@ input, select {
 input:focus, select:focus {
   outline: none;
   border-color: var(--color-primary);
+}
+
+select option:disabled {
+  color: #999;
+  background-color: #f5f5f5;
+}
+
+.searchable-select {
+  position: relative;
+  flex: 1;
+  width: 100%;
+}
+
+.search-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.no-results {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  cursor: default;
+}
+
+.no-results:hover {
+  background-color: transparent;
+}
+
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-top: none;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.dropdown-item {
+  padding: 0.5rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dropdown-item:hover {
+  background-color: var(--color-hover);
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
 }
 </style>

@@ -80,7 +80,7 @@ const routes = [
         component: AdminReportsView
       },
       { 
-        path: "add-users", 
+        path: "user-view", 
         name: "AdminUsers",
         component: AdminUsersView
       }

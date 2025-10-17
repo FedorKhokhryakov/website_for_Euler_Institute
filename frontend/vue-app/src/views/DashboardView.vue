@@ -1,10 +1,10 @@
 <template>
   <div class="dashboard">
     <h1>Портал института им. Эйлера</h1>
+    <p>Добро пожаловать! </p>
     <p>Текущее время: {{ new Date().toLocaleTimeString() }}</p>
   </div>
 </template>
-
 
 <script setup>
 </script>
@@ -12,19 +12,19 @@
 <style scoped>
 .dashboard {
   padding: 2rem;
-  background-color: #f8f9fa;
+  background-color: var(--color-surface);
   min-height: 400px;
 }
 
 .dashboard h1 {
-  color: #2e7d32;
+  color: var(--color-primary);
   margin: 0 0 1rem 0;
   font-size: 1.8rem;
   font-weight: 600;
 }
 
 .dashboard p {
-  color: #333;
+  color: var(--color-text-primary);
   margin: 0 0 0.5rem 0;
   font-size: 1rem;
 }
