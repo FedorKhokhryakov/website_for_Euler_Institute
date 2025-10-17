@@ -257,15 +257,15 @@ def update_post(request, id):
         details_data = data.get('details', {})
         update_errors = update_post_details(post, details_data)
 
-        if post.type == 'publication' and hasattr(post, 'publication'):
-            external_authors = details_data.get('external_authors_list', [])
-            post.publication.external_authors.all().delete()
-            for author_name in external_authors:
-                if author_name.strip():
-                    ExternalPublicationAuthor.objects.create(
-                        publication=post.publication,
-                        author_name=author_name.strip()
-                    )
+        # if post.type == 'publication' and hasattr(post, 'publication'):
+        #    external_authors = details_data.get('external_authors_list', [])
+        #    post.publication.external_authors.all().delete()
+        #    for author_name in external_authors:
+        #        if author_name.strip():
+        #            ExternalPublicationAuthor.objects.create(
+        #                publication=post.publication,
+        #                author_name=author_name.strip()
+        #            )
 
         internal_authors = details_data.get('internal_authors_list', [])
         
@@ -444,18 +444,13 @@ def get_all_users(request):
     try:
         current_user = request.user
 
-        if not is_admin_user(current_user):
-            return Response({
-                'error': 'Доступ запрещен. Требуются права администратора.'
-            }, status=status.HTTP_403_FORBIDDEN)
-
-        admin_role_exists = UserRole.objects.filter(
+        user_role_exists = UserRole.objects.filter(
             user_id=OuterRef('id'),
-            role__name__in=['MasterAdmin', 'SPbUAdmin', 'POMIAdmin']
+            role__name__in=['SPbUUser', 'POMIUser']
         )
         regular_users = User.objects.annotate(
-            has_admin_role=Exists(admin_role_exists)
-        ).filter(has_admin_role=False).prefetch_related('roles').order_by('second_name_rus', 'first_name_rus')
+            has_user_role=Exists(user_role_exists)
+        ).filter(has_user_role=True).prefetch_related('roles').order_by('second_name_rus', 'first_name_rus')
 
         group_filter = request.GET.get('group')
         if group_filter in ['SPbU', 'POMI']:
@@ -910,7 +905,7 @@ def get_year_report(request, year):
         except UserReport.DoesNotExist:
             year_report = YearReport.objects.create(
                 year=year,
-                report_text=f"Отчет за {year} год",
+                report_text="",
                 status='idle'
             )
             UserReport.objects.create(user=user, report=year_report)

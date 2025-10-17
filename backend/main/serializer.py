@@ -229,18 +229,8 @@ class PostWithDetailsSerializer(serializers.Serializer):
 
         post_type = post_instance.type
 
-        if post_type == 'publication' and hasattr(post_instance, 'publication'):
-            publication = post_instance.publication
-            serializer = PublicationReadSerializer(publication)
-            detail_data = serializer.data
-            return detail_data
-
-        elif post_type == 'presentation' and hasattr(post_instance, 'presentation'):
-            presentation = post_instance.presentation
-            serializer = PresentationReadSerializer(presentation)
-            return serializer.data
-
-        return {}
+        from .utils import get_post_details
+        return get_post_details(post_instance)
 
 
 class PostCreateSerializer(BasePostSerializer):

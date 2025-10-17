@@ -66,18 +66,6 @@ def is_user_has_access_to_post(user, post):
     return post.authors.filter(user=user).exists() or is_admin_user(user)
 
 
-def get_post_details(post):
-    if post.type == 'publication' and hasattr(post, 'publication'):
-        publication = post.publication
-        detail_data = PublicationReadSerializer(publication).data
-        return detail_data
-
-    elif post.type == 'presentation' and hasattr(post, 'presentation'):
-        return PresentationReadSerializer(post.presentation).data
-
-    return {}
-
-
 def update_post_details(post, details_data):
     from .serializer import PublicationCreateSerializer, PresentationCreateSerializer
     errors = {}
@@ -171,9 +159,9 @@ def get_user_admin_groups(user):
 
     if UserRole.objects.filter(user=user, role__name='MasterAdmin').exists():
         groups.extend(['SPbU', 'POMI'])
-    if UserRole.objects.filter(user=user, role__name='AdminSPbU').exists():
+    if UserRole.objects.filter(user=user, role__name='SPbUAdmin').exists():
         groups.append('SPbU')
-    if UserRole.objects.filter(user=user, role__name='AdminPOMI').exists():
+    if UserRole.objects.filter(user=user, role__name='POMIAdmin').exists():
         groups.append('POMI')
 
     return groups
@@ -206,6 +194,9 @@ def get_post_details(post):
 
         external_authors = [author.author_name for author in publication.external_authors.all()]
         detail_data['external_authors_list'] = external_authors
+
+        internal_authors = [author.user.id for author in post.authors.all()]
+        detail_data['internal_authors_list'] = internal_authors
 
         return detail_data
 
