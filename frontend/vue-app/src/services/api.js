@@ -2,6 +2,9 @@ import apiClient from './axiosConfig'
 
 export const authAPI = {
   login: (credentials) => apiClient.post('/api/auth/login/', credentials),
+  impersonateStart: (data) => apiClient.post('/api/impersonate/start/', data),
+  impersonateStop: (data) => apiClient.post('/api/impersonate/stop/', data),
+  impersonateStatus: () => apiClient.get('/api/impersonate/status/'),
 }
 
 export const publicationsAPI = {
@@ -11,7 +14,7 @@ export const publicationsAPI = {
   updatePost: (id, data) => apiClient.put(`/api/update_post/${id}/`, data),
   deletePost: (id) => apiClient.delete(`/api/delete_post/${id}/`),
 
-  getReportOnChecking: (year, data) => apiClient.post(`/api/get_science_report_on_checking/${year}/`, data),
+  sendReportOnChecking: (year, data) => apiClient.post(`/api/get_science_report_on_checking/${year}/`, data),
 }
 
 export const usersAPI = {

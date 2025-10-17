@@ -48,12 +48,50 @@
       <div class="science-report">
         <div class="report-text">
           <label for="report_text">Развернутый отчет о полученных результатах:</label>
-          <textarea id="report_text" rows="3"></textarea>
+          <textarea 
+            id="report_text" 
+            v-model="report_text"
+            rows="3"
+            :disabled="isTextareaDisabled"
+          ></textarea>
         </div>
 
-        <button class="btn-submit" @click="submitReport" title="Отослать отчет на проверку">
-            Отослать
+        <button 
+          v-if="showUserSubmitButton"
+          class="btn-submit" 
+          @click="submitReport" 
+          title="Отослать отчет на проверку"
+        >
+          Отослать
         </button>
+
+        <div v-if="showAdminControls" class="admin-controls">
+          <div class="admin-comment-input">
+            <label for="admin_comment_input">Комментарий админа:</label>
+            <textarea 
+              id="admin_comment_input" 
+              v-model="admin_comment_input"
+              rows="2"
+              placeholder="Введите комментарий для пользователя..."
+            ></textarea>
+          </div>
+          <div class="admin-buttons">
+            <button 
+              class="btn-reject" 
+              @click="rejectReport"
+              title="Вернуть отчет на доработку"
+            >
+              Отклонить
+            </button>
+            <button 
+              class="btn-approve" 
+              @click="approveReport"
+              title="Подписать отчет"
+            >
+              Принять
+            </button>
+          </div>
+        </div>
 
         <div class="report-status">
           <div class="status-item">
@@ -71,17 +109,40 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter} from 'vue-router'
-import { publicationsAPI } from '../services/api'
+import { publicationsAPI, adminAPI } from '../services/api'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 const year = computed(() => route.params.year)
 const report = ref(null)
 const loading = ref(true)
 const error = ref('')
+const report_text = ref('')
 const report_status = ref('')
 const admin_comment = ref('')
+const admin_comment_input = ref('')
+
+const isAdminReviewing = computed(() => {
+  return (authStore.isImpersonating || authStore.isAdmin) && report_status.value === 'on_checking'
+})
+
+const isTextareaDisabled = computed(() => {
+  return report_status.value === 'on_checking' || 
+         report_status.value === 'signed' ||
+         isAdminReviewing.value
+})
+
+const showUserSubmitButton = computed(() => {
+  return (report_status.value === 'idle' || report_status.value === 'to_rework') && 
+         !isAdminReviewing.value
+})
+
+const showAdminControls = computed(() => {
+  return isAdminReviewing.value
+})
 
 const publications = computed(() => {
   return report.value?.posts?.filter(post => post.post.type === 'publication') || []
@@ -106,8 +167,8 @@ const loadYearReport = async () => {
   try {
     const response = await publicationsAPI.getYearReport(year.value)
     report.value = response.data;
-    console.log(report.value);
     if (report.value.year_report) {
+      report_text.value = report.value.year_report.report_text
       report_status.value = report.value.year_report.status
       admin_comment.value = report.value.year_report.admin_comment
     }
@@ -186,7 +247,56 @@ const addPost = () => {
   router.push('/posts/create/')
 }
 
-const submitReport = () => {
+const submitReport = async () => {
+  if (confirm(`Вы уверены, что хотите отослать отчет на проверку?`)) {
+    try {
+      const requestData = {
+        year_report: report_text.value
+      }
+
+      await publicationsAPI.sendReportOnChecking(year.value, requestData)
+      await loadYearReport()
+    } catch (err) {
+      console.error('Ошибка отправки:', err)
+      alert('Не удалось отправить отчет на проверку')
+    }
+  }
+}
+
+const rejectReport = async () => {
+  if (confirm(`Вы уверены, что хотите отклонить отчет?`)) {
+    try {
+      const requestData = {
+        new_status: 'to_rework',
+        admin_comment: admin_comment_input.value
+      }
+
+      const targetUserId = authStore.user?.id
+      await adminAPI.setReportNewStatus(targetUserId, year.value, requestData)
+      await loadYearReport()
+    } catch (err) {
+      console.error('Ошибка отклонения отчета:', err)
+      alert('Не удалось отклонить отчет')
+    }
+  }
+}
+
+const approveReport = async () => {
+  if (confirm(`Вы уверены, что хотите подписать отчет?`)) {
+    try {
+      const requestData = {
+        new_status: 'signed',
+        admin_comment: admin_comment_input.value || ''
+      }
+
+      const targetUserId = authStore.user?.id
+      await adminAPI.setReportNewStatus(targetUserId, year.value, requestData)
+      await loadYearReport()
+    } catch (err) {
+      console.error('Ошибка подписания отчета:', err)
+      alert('Не удалось подписать отчет')
+    }
+  }
 }
 </script>
 
@@ -298,6 +408,12 @@ const submitReport = () => {
   box-sizing: border-box;
 }
 
+.report-text textarea:disabled {
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+}
+
 .btn-submit {
   background-color: var(--color-primary);
   color: var(--color-text-light);
@@ -312,9 +428,70 @@ const submitReport = () => {
   background-color: var(--color-primary-dark);
 }
 
+.admin-controls {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.admin-comment-input {
+  margin-bottom: 1rem;
+}
+
+.admin-comment-input label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.admin-comment-input textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.admin-buttons {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-reject {
+  background-color: var(--color-secondary);
+  color: var(--color-text-light);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  flex: 1;
+}
+
+.btn-reject:hover {
+  background-color: var(--color-secondary-dark);
+}
+
+.btn-approve {
+  background-color: var(--color-primary);
+  color: var(--color-text-light);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  flex: 1;
+}
+
+.btn-approve:hover {
+  background-color: var(--color-primary-dark);
+}
+
 .report-status {
   padding: 0.75rem;
   background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
 }
 
 .status-item {

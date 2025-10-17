@@ -244,7 +244,7 @@ const years = computed(() => {
 const loadUsers = async () => {
   try {
     const response = await usersAPI.getAllUsers()
-    users.value = response.data.users || response.data
+    users.value = response.data.users
   } catch (error) {
     console.error('Ошибка загрузки пользователей:', error)
     errorMessage.value = 'Ошибка загрузки списка пользователей'
@@ -255,7 +255,7 @@ const filteredUsers = computed(() => {
   if (!userSearch.value) return users.value
   const searchTerm = userSearch.value.toLowerCase()
   return users.value.filter(user => {
-    const userName = getUserFullName(user) || ''
+    const userName = getUserFullName(user)
     return userName.toLowerCase().includes(searchTerm)
   })
 })
@@ -302,7 +302,7 @@ const selectUser = (user) => {
 }
 
 const getUserFullName = (user) => {
-  return `${user.last_name || ''} ${user.first_name || ''} ${user.middle_name || ''}`.trim()
+  return `${user.second_name_rus} ${user.first_name_rus} ${user.middle_name_rus || ''}`.trim()
 }
 
 const handleClickOutside = (event) => {
@@ -570,7 +570,6 @@ onUnmounted(() => {
   border: 1px solid var(--color-border);
   max-height: 300px;
   overflow-y: auto;
-  font-family: 'Courier New', monospace;
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;

@@ -102,6 +102,7 @@ const loadPostData = async () => {
     try {
       postId.value = route.params.id
       const response = await publicationsAPI.getPostInformation(postId.value)
+      console.log("Загруженные данные: ", response.data)
       const postData = response.data
       
       post.type = postData.post.type
@@ -127,6 +128,11 @@ const formatPostData = () => {
     }
   })
 
+  if (details.internal_authors_list && !Array.isArray(details.internal_authors_list)) {
+    details.internal_authors_list = []
+  }
+
+
   return {
     post: {
       type: post.type,
@@ -143,6 +149,8 @@ const submitForm = async () => {
   
   try {
     const formattedData = formatPostData()
+
+    console.log("Подтверждение формы: ", formattedData)
     
     if (isEditMode.value) {
       const response = await publicationsAPI.updatePost(postId.value, formattedData)

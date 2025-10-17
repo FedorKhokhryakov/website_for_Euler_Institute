@@ -15,6 +15,32 @@
     <div v-else-if="userData" class="profile-content">
       <div class="profile-main">
         <div class="info-container">
+
+          <div class="section-title">Учётные данные</div>
+          <div class="info-row">
+            <label class="info-label">Логин</label>
+            <input 
+              class="info-input"
+              v-model="loginForm.username"
+              placeholder="Введите логин"
+            >
+          </div>
+          <div class="info-row">
+            <label class="info-label">Новый пароль</label>
+            <div class="password-wrapper">
+              <input 
+                class="info-input"
+                :type="showPassword ? 'text' : 'password'"
+                v-model="loginForm.password"
+                placeholder="Введите новый пароль"
+              >
+              <button type="button" class="toggle-password" @click="showPassword = !showPassword">
+                {{ showPassword ? '🔓' : '🔒' }}
+              </button>
+            </div>
+            <span v-if="passwordError" class="error-text">{{ passwordError }}</span>
+          </div>
+
           <div class="section-title">ФИО на русском</div>
           <div class="info-row triple-fields">
             <div class="field-group">
@@ -112,6 +138,42 @@
               v-model="formData.position"
             >
           </div>
+
+          <div v-if="isImpersonating">
+            <div class="section-title">Административные поля</div>
+            <div class="info-row">
+              <label class="info-label">Номер договора</label>
+              <input 
+                class="info-input"
+                v-model="adminFormData.contract_number"
+                placeholder="Введите номер договора"
+              >
+            </div>
+            <div class="info-row">
+              <label class="info-label">Договор</label>
+              <div class="file-upload-section">
+                <input 
+                  type="file"
+                  ref="contractFileInput"
+                  class="file-input"
+                  @change="handleContractFile"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                >
+                <button 
+                  class="file-upload-button"
+                  @click="triggerFileInput"
+                >
+                  📎 Выбрать файл
+                </button>
+                <span v-if="adminFormData.contract_file" class="file-name">
+                  {{ adminFormData.contract_file.name }}
+                </span>
+                <span v-else class="file-placeholder">
+                  Файл не выбран
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -130,13 +192,19 @@
 
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
-import { useRoute } from 'vue-router'
 import { usersAPI } from '../services/api.js'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
+const isImpersonating = ref(authStore.isImpersonating)
 
 const userData = ref(null)
 const loading = ref(true)
 const error = ref('')
 const saving = ref(false)
+const passwordError = ref('')
+const showPassword = ref(false)
+const contractFileInput = ref(null)
 
 const formData = reactive({
   second_name_rus: '',
@@ -153,6 +221,16 @@ const formData = reactive({
   position: ''
 })
 
+const loginForm = reactive({
+  username: '',
+  password: ''
+})
+
+const adminFormData = reactive({
+  contract_number: '',
+  contract_file: null
+})
+
 const loadUserData = async () => {
   try {
     loading.value = true
@@ -160,22 +238,14 @@ const loadUserData = async () => {
     
     const response = await usersAPI.getUserInfo()
     userData.value = response.data
-
-    console.log(userData.value);
-    
     Object.assign(formData, userData.value.user_info)
+    loginForm.username = userData.value.user_info.username
     
-  } catch (err) {
-    console.error('Ошибка загрузки данных пользователя:', err)
-    if (err.response?.status === 404) {
-      error.value = 'Пользователь не найден'
-    } else if (err.response?.status === 401) {
-      error.value = 'Требуется авторизация'
-    } else if (err.response?.status === 403) {
-      error.value = 'Недостаточно прав для просмотра'
-    } else {
-      error.value = 'Не удалось загрузить данные пользователя'
+    if (userData.value.admin_info && isImpersonating.value) {
+      Object.assign(adminFormData, userData.value.admin_info)
     }
+  } catch (err) {
+    error.value = 'Ошибка загрузки данных пользователя'
   } finally {
     loading.value = false
   }
@@ -185,28 +255,31 @@ const saveUserData = async () => {
   try {
     saving.value = true
     error.value = ''
+    passwordError.value = ''
+    const updateData = { ...formData, username: loginForm.username }
 
-    const updateData = { ...formData }
+    if (loginForm.password.trim() !== '') {
+      if (loginForm.password.length < 6) {
+        passwordError.value = 'Пароль должен содержать не менее 6 символов'
+        return
+      }
+      updateData.password = loginForm.password
+    }
 
     const numericFields = ['year_of_birth', 'year_of_graduation', 'year_of_degree']
     numericFields.forEach(field => {
-      if (updateData[field] === '' || updateData[field] === null) {
-        updateData[field] = null
-      } else {
-        updateData[field] = parseInt(updateData[field])
-      }
+      updateData[field] = updateData[field] ? parseInt(updateData[field]) : null
     })
 
     await usersAPI.updateUser(userData.value.user_info.id, updateData)
-    
     alert('Данные успешно сохранены!')
-    
   } catch (err) {
-    console.error('Ошибка сохранения данных:', err)
     if (err.response?.status === 400) {
-      error.value = 'Ошибка валидации данных: ' + JSON.stringify(err.response.data)
-    } else if (err.response?.status === 403) {
-      error.value = 'Недостаточно прав для изменения данных'
+      if (err.response.data?.password) {
+        passwordError.value = 'Ошибка пароля: ' + err.response.data.password.join(', ')
+      } else {
+        error.value = 'Ошибка валидации данных'
+      }
     } else {
       error.value = 'Не удалось сохранить данные пользователя'
     }
@@ -215,9 +288,14 @@ const saveUserData = async () => {
   }
 }
 
-onMounted(() => {
-  loadUserData()
-})
+const triggerFileInput = () => contractFileInput.value?.click()
+
+const handleContractFile = (event) => {
+  const file = event.target.files[0]
+  if (file) adminFormData.contract_file = file
+}
+
+onMounted(() => loadUserData())
 </script>
 
 <style scoped>
@@ -229,6 +307,7 @@ onMounted(() => {
 
 .profile-header {
   margin-bottom: 1.5rem;
+  position: relative;
 }
 
 .profile-header h1 {
@@ -248,6 +327,27 @@ onMounted(() => {
 
 .error-state {
   color: var(--color-secondary);
+}
+
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.error-text {
+  color: var(--color-secondary);
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
 }
 
 .profile-main {
@@ -270,6 +370,11 @@ onMounted(() => {
   margin-bottom: 0.5rem;
   padding-bottom: 0.25rem;
   border-bottom: 1px solid var(--color-primary);
+}
+
+.admin-title {
+  color: #dc3545;
+  border-bottom-color: #dc3545;
 }
 
 .info-row {
@@ -310,12 +415,53 @@ onMounted(() => {
   border-color: var(--color-primary);
 }
 
-/* Стили для секции сохранения */
+.file-upload-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-upload-button {
+  background-color: #6c757d;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.file-upload-button:hover {
+  background-color: #5a6268;
+}
+
+.file-name {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.file-placeholder {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.file-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.25rem;
+}
+
 .save-section {
   margin-top: 2rem;
   padding: 1rem;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
 }
 
 .save-button {
@@ -334,6 +480,25 @@ onMounted(() => {
 
 .save-button:disabled {
   background-color: var(--color-text-secondary);
+  cursor: not-allowed;
+}
+
+.admin-save-button {
+  background-color: #dc3545;
+  color: white;
+  padding: 0.75rem 2rem;
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-save-button:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.admin-save-button:disabled {
+  background-color: #6c757d;
   cursor: not-allowed;
 }
 </style>

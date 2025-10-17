@@ -32,8 +32,20 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('authToken')
-      window.location.href = '/login'
+      const isImpersonating = localStorage.getItem('is_impersonating')
+      const contextToken = localStorage.getItem('context_token')
+      
+      if (isImpersonating && contextToken) {
+        console.warn('Сессия имперсонализации истекла, возвращаемся к оригинальному пользователю')
+        localStorage.removeItem('auth_token')
+        localStorage.removeItem('user_data')
+        localStorage.removeItem('context_token')
+        localStorage.removeItem('is_impersonating')
+        window.location.href = '/login'
+      } else {
+        localStorage.removeItem('authToken')
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }

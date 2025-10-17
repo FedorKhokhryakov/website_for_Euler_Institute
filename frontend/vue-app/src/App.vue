@@ -1,8 +1,15 @@
 <template>
-  <router-view />
+  <div id="app" :class="{ 'with-impersonation': isImpersonating }">
+    <router-view />
+  </div>
 </template>
 
 <script setup>
+import { useAuthStore } from './stores/auth'
+import { storeToRefs } from 'pinia'
+
+const authStore = useAuthStore()
+const { isImpersonating } = storeToRefs(authStore)
 </script>
 
 <style>
@@ -24,4 +31,7 @@ body {
   min-height: 100vh;
 }
 
+#app.with-impersonation {
+  padding-top: 30px;
+}
 </style>

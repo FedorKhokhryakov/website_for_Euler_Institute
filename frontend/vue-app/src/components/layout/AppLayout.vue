@@ -1,5 +1,17 @@
 <template>
   <div class="app-layout">
+    <div v-if="isImpersonating" class="impersonation-banner">
+      <div class="banner-content">
+        <span class="banner-text">
+          Режим супервизора: Вы вошли как 
+          <strong>{{ user?.second_name_rus }} {{ user?.first_name_rus }}</strong>
+        </span>
+        <button @click="stopImpersonation" class="banner-button">
+          Вернуться к себе
+        </button>
+      </div>
+    </div>
+
     <aside class="sidebar">
       <div class="sidebar-header">
         <h2>Институт им. Эйлера</h2>
@@ -32,9 +44,9 @@
             Моя учетная запись
         </router-link>
         
-        <div v-if="isAdmin" class="admin-section">
-          <router-link to="/admin/add-users" class="nav-link admin-link">
-            Добавить пользователя
+        <div v-if="isAdmin && !isImpersonating" class="admin-section">
+          <router-link to="/admin/user-view" class="nav-link admin-link">
+            Пользователи
           </router-link>
           <router-link to="/admin/generate-report" class="nav-link admin-link">
             Сгенерировать отчет
@@ -59,7 +71,7 @@ import { storeToRefs } from 'pinia'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const { user } = storeToRefs(authStore)
+const { user, isAdmin, isImpersonating, impersonator } = storeToRefs(authStore)
 
 const isReportsOpen = ref(false)
 
@@ -72,13 +84,8 @@ const years = computed(() => {
   return yearsList.reverse()
 })
 
-const isAdmin = computed(() => {
-  const adminRoles = ['MasterAdmin', 'AdminPOMI', 'AdminSPbU']
-  return user.value?.roles?.some(role => adminRoles.includes(role)) || false
-})
-
 const showReportsSection = computed(() => {
-  const userRolesList = ['UserSPbU', 'UserPOMI']
+  const userRolesList = ['SPbUUser', 'POMIUser']
   return user.value?.roles?.some(role => userRolesList.includes(role)) || false
 })
 
@@ -93,6 +100,16 @@ const toggleReports = () => {
   isReportsOpen.value = !isReportsOpen.value
 }
 
+const stopImpersonation = async () => {
+  try {
+    await authStore.stopImpersonation()
+    router.push('/dashboard')
+  } catch (error) {
+    console.error('Ошибка при завершении имперсонализации:', error)
+    alert('Не удалось завершить режим имперсонализации')
+  }
+}
+
 const logout = () => {
   authStore.logout()
   router.push('/login')
@@ -103,7 +120,48 @@ const logout = () => {
 .app-layout {
   display: flex;
   min-height: 100vh;
-  overflow: visible;
+}
+
+.impersonation-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background-color: var(--color-primary-dark);
+  color: var(--color-text-light);
+  padding: 0.5rem;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--color-primary-dark);
+}
+
+.banner-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 1rem;
+}
+
+.banner-text {
+  font-weight: 500;
+}
+
+.banner-button {
+  background-color: var(--color-secondary);
+  color: var(--color-text-light);
+  border: none;
+  padding: 0.25rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.banner-button:hover {
+  background-color: var(--color-secondary-dark);
 }
 
 .sidebar {
@@ -186,7 +244,6 @@ const logout = () => {
 .years-list {
   display: flex;
   flex-direction: column;
-  transition: all 0.3s ease;
 }
 
 .year-link {
@@ -238,7 +295,6 @@ const logout = () => {
 }
 
 .main-content {
-  align-content: right;
   flex: 1;
   padding: 1rem;
   background-color: var(--color-background);
