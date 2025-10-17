@@ -276,15 +276,15 @@ def update_post(request, id):
         details_data = data.get('details', {})
         update_errors = update_post_details(post, details_data)
 
-        if post.type == 'publication' and hasattr(post, 'publication'):
-            external_authors = details_data.get('external_authors_list', [])
-            post.publication.external_authors.all().delete()
-            for author_name in external_authors:
-                if author_name.strip():
-                    ExternalPublicationAuthor.objects.create(
-                        publication=post.publication,
-                        author_name=author_name.strip()
-                    )
+        # if post.type == 'publication' and hasattr(post, 'publication'):
+        #    external_authors = details_data.get('external_authors_list', [])
+        #    post.publication.external_authors.all().delete()
+        #    for author_name in external_authors:
+        #        if author_name.strip():
+        #            ExternalPublicationAuthor.objects.create(
+        #                publication=post.publication,
+        #                author_name=author_name.strip()
+        #            )
 
         internal_authors = details_data.get('internal_authors_list', [])
         
@@ -368,24 +368,25 @@ def delete_post(request, id):
 @permission_classes([IsAuthenticated])
 def update_user(request, id):
     try:
+        print(11111)
         current_user = request.user
         target_user_id = int(id)
-
+        print(2222)
         target_user = get_object_or_404(User, id=target_user_id)
-
+        print(33333)
         if not have_enough_rights(current_user, target_user):
             return Response({
                 'error': 'Доступ запрещен. Недостаточно прав для обновления профиля.'
             }, status=status.HTTP_403_FORBIDDEN)
-
+        print(44444)
         data = request.data
-
+        print("HI1")
         serializer = UserUpdateSerializer(
             target_user,
             data=data,
             partial=True
         )
-
+        print("HI2")
         if serializer.is_valid():
             updated_user = serializer.save()
 
@@ -462,18 +463,13 @@ def get_all_users(request):
     try:
         current_user = request.user
 
-        # if not is_admin_user(current_user):
-        #     return Response({
-        #         'error': 'Доступ запрещен. Требуются права администратора.'
-        #     }, status=status.HTTP_403_FORBIDDEN)
-
-        admin_role_exists = UserRole.objects.filter(
+        user_role_exists = UserRole.objects.filter(
             user_id=OuterRef('id'),
-            role__name__in=['MasterAdmin', 'SPbUAdmin', 'POMIAdmin']
+            role__name__in=['SPbUUser', 'POMIUser']
         )
         regular_users = User.objects.annotate(
-            has_admin_role=Exists(admin_role_exists)
-        ).filter(has_admin_role=False).prefetch_related('roles').order_by('second_name_rus', 'first_name_rus')
+            has_user_role=Exists(user_role_exists)
+        ).filter(has_user_role=True).prefetch_related('roles').order_by('second_name_rus', 'first_name_rus')
 
         group_filter = request.GET.get('group')
         if group_filter in ['SPbU', 'POMI']:
@@ -653,6 +649,139 @@ def get_user_profile(request, id):
     serializer = UserSerializer(user)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+# POST /api/impersonate/start/
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def impersonate_start(request):
+    try:
+        current_user = request.user
+
+        if not is_admin_user(current_user):
+            return Response({
+                'error': 'Доступ запрещен. Требуются права администратора.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = ImpersonationStartSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'error': 'Ошибки валидации данных',
+                'details': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        target_user = serializer.validated_data['user_id']
+
+        if not can_impersonate_user(current_user, target_user):
+            return Response({
+                'error': f'Недостаточно прав для имперсонализации пользователя из группы {target_user.group}'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        tokens = create_impersonation_tokens(current_user, target_user)
+
+        session = ImpersonationSession.objects.create(
+            impersonator=current_user,
+            target_user=target_user,
+            impersonation_token=tokens['token'],
+            context_token=tokens['context_token']
+        )
+
+        user_roles = UserRole.objects.filter(user=target_user).select_related('role')
+        roles_list = [user_role.role.name for user_role in user_roles]
+
+        user_info_data = UserInfoSerializer(target_user).data
+
+        return Response({
+            'token': tokens['token'],
+            'context_token': tokens['context_token'],
+            'user_info': user_info_data,
+            'roles': roles_list,
+            'impersonator': {
+                'id': current_user.id,
+                'username': current_user.username,
+                'first_name_rus': current_user.first_name_rus,
+                'second_name_rus': current_user.second_name_rus,
+            },
+            'is_impersonating': True,
+            'message': f'Режим имперсонализации для пользователя {target_user.username}'
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при запуске имперсонализации',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# POST /api/impersonate/stop/
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def impersonate_stop(request):
+    try:
+        serializer = ImpersonationStopSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'error': 'Неверный или отсутствующий context_token'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        context_token = serializer.validated_data['context_token']
+
+        context_data, error_message = validate_context_token(context_token)
+        if error_message:
+            return Response({
+                'error': error_message
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        impersonator = context_data['impersonator']
+        target_user = context_data['target_user']
+        session = context_data['session']
+
+        session.is_active = False
+        session.save()
+
+        refresh = RefreshToken.for_user(impersonator)
+
+        user_roles = UserRole.objects.filter(user=impersonator).select_related('role')
+        roles_list = [user_role.role.name for user_role in user_roles]
+
+        user_info_data = UserInfoSerializer(impersonator).data
+
+        return Response({
+            'token': str(refresh.access_token),
+            'user_info': user_info_data,
+            'roles': roles_list,
+            'is_impersonating': False,
+            'message': 'Режим имперсонализации завершен'
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при завершении имперсонализации',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# GET /api/impersonate/status/
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def impersonate_status(request):
+    try:
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:]
+            status_info = get_impersonation_status(request.user, token)
+
+            return Response(status_info, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'is_impersonating': False
+            }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при получении статуса имперсонализации',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 #########################################################################################
 
 
@@ -795,7 +924,7 @@ def get_year_report(request, year):
         except UserReport.DoesNotExist:
             year_report = YearReport.objects.create(
                 year=year,
-                report_text=f"Отчет за {year} год",
+                report_text="",
                 status='idle'
             )
             UserReport.objects.create(user=user, report=year_report)

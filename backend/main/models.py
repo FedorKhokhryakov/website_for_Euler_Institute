@@ -240,3 +240,16 @@ class Report(models.Model):
 
     def generate_filename(self):
         return f"report_{self.user.username}_{self.year}_{self.created_at.strftime('%Y%m%d_%H%M%S')}.{self.format}"
+
+
+class ImpersonationSession(models.Model):
+    impersonator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='impersonator_sessions')
+    target_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='target_sessions')
+    impersonation_token = models.TextField()
+    context_token = models.TextField()
+    started_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Сессия имперсонализации"
+        verbose_name_plural = "Сессии имперсонализации"

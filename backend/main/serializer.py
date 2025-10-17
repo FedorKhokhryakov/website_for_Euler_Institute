@@ -136,6 +136,8 @@ class UserUpdateSerializer(BaseUserSerializer):
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
 
+        print("HI")
+
         for attr, value in validated_data.items():
             if value is not None:
                 setattr(instance, attr, value)
@@ -276,18 +278,8 @@ class PostWithDetailsSerializer(serializers.Serializer):
 
         post_type = post_instance.type
 
-        if post_type == 'publication' and hasattr(post_instance, 'publication'):
-            publication = post_instance.publication
-            serializer = PublicationReadSerializer(publication)
-            detail_data = serializer.data
-            return detail_data
-
-        elif post_type == 'presentation' and hasattr(post_instance, 'presentation'):
-            presentation = post_instance.presentation
-            serializer = PresentationReadSerializer(presentation)
-            return serializer.data
-
-        return {}
+        from .utils import get_post_details
+        return get_post_details(post_instance)
 
 
 class PostCreateSerializer(BasePostSerializer):
@@ -409,6 +401,25 @@ class ScienceReportStatusUpdateSerializer(serializers.Serializer):
         if value and len(value.strip()) > 1000:
             raise serializers.ValidationError("Комментарий слишком длинный (максимум 1000 символов)")
         return value.strip()
+
+
+class ImpersonationStartSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(required=True)
+
+    def validate_user_id(self, value):
+        try:
+            user = User.objects.get(id=value)
+            return user
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Целевой пользователь не найден")
+
+class ImpersonationStopSerializer(serializers.Serializer):
+    context_token = serializers.CharField(required=True)
+
+
+class ImpersonationStatusSerializer(serializers.Serializer):
+    is_impersonating = serializers.BooleanField()
+    impersonator = serializers.DictField(required=False)
 
 
 ########################################################################################
