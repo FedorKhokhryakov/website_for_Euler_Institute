@@ -166,7 +166,7 @@ def create_post(request):
             return Response({
                 'error': 'Отсутствуют обязательные поля: post и post.type'
             }, status=status.HTTP_400_BAD_REQUEST)
-
+            
         post_type = data['post']['type']
 
         if post_type not in ['publication', 'presentation']:
