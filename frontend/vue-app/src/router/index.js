@@ -10,9 +10,7 @@ import UserProfileView from '../views/UserProfileView.vue'
 import YearReportView from '../views/YearReportView.vue'
 import PostFormView from '../views/PostFormView.vue'
 
-import AdminDashboardView from '../views/admin/AdminDashboardView.vue'
 import AdminUsersView from '../views/admin/AdminUsersView.vue'
-import AdminPublicationsView from '../views/admin/AdminPublicationsView.vue'
 import AdminReportsView from '../views/admin/AdminReportsView.vue'
 import NotFoundView from "../views/NotFoundView.vue"
 
