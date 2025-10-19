@@ -162,30 +162,11 @@ def create_post(request):
     try:
         data = request.data.copy()
 
-    authors_input = data.get('authors', '')
-    authors_list = []
-
-    if authors_input and authors_input != 'string':
-        if isinstance(authors_input, str):
-            authors_input = authors_input.strip('[]')
-            for aid in authors_input.split(','):
-                aid = aid.strip()
-                if aid and aid.isdigit():
-                    authors_list.append(int(aid))
-        elif isinstance(authors_input, list):
-            for aid in authors_input:
-                if isinstance(aid, int):
-                    authors_list.append(aid)
-                elif isinstance(aid, str) and aid.isdigit():
-                    authors_list.append(int(aid))
-
-    if request.user.id not in authors_list:
-        authors_list.append(request.user.id)
-
-    data['authors'] = authors_list
-
-    serializer = PublicationCreateSerializer(data=data)
-
+        if 'post' not in data or 'type' not in data['post']:
+            return Response({
+                'error': 'Отсутствуют обязательные поля: post и post.type'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
         post_type = data['post']['type']
 
         if post_type not in ['publication', 'presentation']:
