@@ -439,3 +439,24 @@ def get_impersonation_status(user, token):
 
     except Exception:
         return {'is_impersonating': False}
+
+
+def can_user_assign_roles(current_user, roles_to_assign):
+    current_user_roles = [ur.role.name for ur in UserRole.objects.filter(user=current_user)]
+
+    if 'MasterAdmin' in current_user_roles:
+        return True, ""
+
+    if 'SPbUAdmin' in current_user_roles:
+        for role in roles_to_assign:
+            if role != 'SPbUUser':
+                return False, "SPbUAdmin может назначать только роль SPbUUser"
+        return True, ""
+
+    if 'POMIAdmin' in current_user_roles:
+        for role in roles_to_assign:
+            if role != 'POMIUser':
+                return False, "POMIAdmin может назначать только роль POMIUser"
+        return True, ""
+
+    return False, "Недостаточно прав для назначения ролей"

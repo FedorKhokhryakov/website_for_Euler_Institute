@@ -22,6 +22,7 @@ urlpatterns = [
     #path('api/users/<int:id>/', api_views.get_user_profile, name='user-profile'),
     #path('api/users/', api_views.user_list, name='user-list'),
     #path("api/users_request/", api_views.users_request, name="users-request"),
+    path('api/create_user/', api_views.create_user, name='create_user'),
     path('api/update_user/<int:id>/', api_views.update_user, name='update_user'),
     path('api/delete_user/<int:id>/', api_views.delete_user, name='delete_user'),
 

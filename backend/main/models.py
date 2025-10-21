@@ -13,7 +13,7 @@ class User(AbstractUser):
     first_name_eng = models.CharField('Имя (англ)', max_length=150, blank=True)
     second_name_eng = models.CharField('Фамилия (англ)', max_length=150, blank=True)
     middle_name_eng = models.CharField('Отчество (англ)', max_length=150, blank=True)
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, null=True, blank=True)
     group = models.CharField('Группа', max_length=10, choices=[('SPbU', 'СПбГУ'), ('POMI', 'ПОМИ')])
     year_of_birth = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1900), MaxValueValidator(2100)])
     year_of_graduation = models.IntegerField(null=True, blank=True)
@@ -77,14 +77,6 @@ class Post(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     #authors = models.ManyToManyField(User, through='PostAuthor')
 
-class PostAuthor(models.Model):
-    post = models.ForeignKey(Post, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-
-    class Meta:
-        unique_together = ['post', 'user']
-
-
 class Publication(models.Model):
     class Status(models.TextChoices):
         PREPRINT = "preprint", "Препринт"
@@ -128,68 +120,6 @@ class Presentation(models.Model):
     description = models.TextField(blank=True)
     presentation_place = models.CharField(max_length=255, blank=True)
     presentation_date = models.DateField(blank=True)
-
-
-class Monograph(models.Model):
-    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="monograph")
-    publisher = models.CharField(max_length=255)
-    pages = models.PositiveIntegerField()
-
-
-# class Presentation(models.Model):
-#     post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="presentation")
-#     conference = models.CharField(max_length=255)
-#     city = models.CharField(max_length=255)
-
-
-class Lecture(models.Model):
-    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="lecture")
-    course_name = models.CharField(max_length=255)
-    semester = models.CharField(max_length=50)
-
-
-class Patent(models.Model):
-    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="patent")
-    number = models.CharField(max_length=50)
-    date_registered = models.DateField()
-
-
-class Supervision(models.Model):
-    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="supervision")
-    student_name = models.CharField(max_length=255)
-    topic = models.CharField(max_length=255)
-
-
-class Editing(models.Model):
-    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="editing")
-    edition_name = models.CharField(max_length=255)
-
-
-class EditorialBoard(models.Model):
-    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="editorial_board")
-    journal = models.CharField(max_length=255)
-
-
-class OrgWork(models.Model):
-    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="org_work")
-    organization = models.CharField(max_length=255)
-
-
-class Opposition(models.Model):
-    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="opposition")
-    thesis_title = models.CharField(max_length=255)
-
-
-class Grant(models.Model):
-    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="grant")
-    fund_name = models.CharField(max_length=255)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-
-
-class Award(models.Model):
-    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="award")
-    award_name = models.CharField(max_length=255)
-    year = models.PositiveIntegerField()
 
 
 class PostAuthor(models.Model):

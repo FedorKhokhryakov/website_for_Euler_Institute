@@ -85,6 +85,102 @@ class UserInfoSerializer(BaseUserSerializer):
         return is_admin_user(obj)
 
 
+class UserCreateSerializer(serializers.ModelSerializer):
+    login = serializers.CharField(source='username', required=True)
+    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    roles = serializers.ListField(
+        child=serializers.CharField(),
+        required=True,
+        write_only=True
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            'login', 'password', 'roles',
+            'second_name_rus', 'first_name_rus', 'middle_name_rus',
+            'second_name_eng', 'first_name_eng', 'middle_name_eng',
+            'email'
+        ]
+        extra_kwargs = {
+            'second_name_rus': {'required': True},
+            'first_name_rus': {'required': True},
+            'middle_name_rus': {'required': False, 'allow_blank': True},
+            'second_name_eng': {'required': False, 'allow_blank': True},
+            'first_name_eng': {'required': False, 'allow_blank': True},
+            'middle_name_eng': {'required': False, 'allow_blank': True},
+            'email': {'required': False, 'allow_blank': True},
+        }
+
+    def validate_login(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Пользователь с таким логином уже существует")
+        return value
+
+    def validate_roles(self, value):
+        if not value:
+            raise serializers.ValidationError("Список ролей не может быть пустым")
+
+        valid_roles = ['MasterAdmin', 'SPbUAdmin', 'POMIAdmin', 'SPbUUser', 'POMIUser']
+        for role in value:
+            if role not in valid_roles:
+                raise serializers.ValidationError(f"Недопустимая роль: {role}")
+
+        return value
+
+    def create(self, validated_data):
+        roles_data = validated_data.pop('roles')
+        username = validated_data.pop('username')
+        password = validated_data.pop('password')
+
+        if not validated_data.get('first_name_eng') and validated_data.get('first_name_rus'):
+            validated_data['first_name_eng'] = self.transliterate(validated_data['first_name_rus'])
+
+        if not validated_data.get('second_name_eng') and validated_data.get('second_name_rus'):
+            validated_data['second_name_eng'] = self.transliterate(validated_data['second_name_rus'])
+
+        if not validated_data.get('middle_name_eng') and validated_data.get('middle_name_rus'):
+            validated_data['middle_name_eng'] = self.transliterate(validated_data['middle_name_rus'])
+
+        if any(role in ['MasterAdmin', 'SPbUAdmin', 'SPbUUser'] for role in roles_data):
+            validated_data['group'] = 'SPbU'
+        elif any(role in ['POMIAdmin', 'POMIUser'] for role in roles_data):
+            validated_data['group'] = 'POMI'
+        else:
+            validated_data['group'] = 'SPbU'
+
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+            **validated_data
+        )
+
+        for role_name in roles_data:
+            role = Role.objects.get(name=role_name)
+            UserRole.objects.create(user=user, role=role)
+
+        return user
+
+    def transliterate(self, text):
+        translit_dict = {
+            'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+            'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+            'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+            'ф': 'f', 'х': 'kh', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'shch',
+            'ы': 'y', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+            'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'E',
+            'Ж': 'Zh', 'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M',
+            'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U',
+            'Ф': 'F', 'Х': 'Kh', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Shch',
+            'Ы': 'Y', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya'
+        }
+
+        result = ''
+        for char in text:
+            result += translit_dict.get(char, char)
+        return result
+
+
 class UserUpdateSerializer(BaseUserSerializer):
     password = serializers.CharField(
         write_only=True,
@@ -335,8 +431,6 @@ class ScienceReportSubmitSerializer(serializers.Serializer):
     def validate_year_report(self, value):
         if not value.strip():
             raise serializers.ValidationError("Текст отчета не может быть пустым")
-        if len(value.strip()) < 10:
-            raise serializers.ValidationError("Отчет слишком короткий")
         return value.strip()
 
 class ScienceReportStatusUpdateSerializer(serializers.Serializer):
@@ -371,83 +465,6 @@ class ImpersonationStopSerializer(serializers.Serializer):
 class ImpersonationStatusSerializer(serializers.Serializer):
     is_impersonating = serializers.BooleanField()
     impersonator = serializers.DictField(required=False)
-
-
-########################################################################################
-#хз нужны ли эти сериализаторы
-# class PublicationSerializer(BasePostSerializer):
-#     class Meta:
-#         model = Publication
-#         fields = '__all__'
-
-
-class MonographSerializer(BasePostSerializer):
-    class Meta:
-        model = Monograph
-        fields = '__all__'
-
-# class PresentationSerializer(BasePostSerializer):
-#     class Meta:
-#         model = Presentation
-#         fields = '__all__'
-
-class LectureSerializer(BasePostSerializer):
-    class Meta:
-        model = Lecture
-        fields = '__all__'
-
-
-class PatentSerializer(BasePostSerializer):
-    class Meta:
-        model = Patent
-        fields = '__all__'
-
-
-class SupervisionSerializer(BasePostSerializer):
-    class Meta:
-        model = Supervision
-        fields = '__all__'
-
-
-class EditingSerializer(BasePostSerializer):
-    class Meta:
-        model = Editing
-        fields = '__all__'
-
-
-class EditorialBoardSerializer(BasePostSerializer):
-    class Meta:
-        model = EditorialBoard
-        fields = '__all__'
-
-
-class OrgWorkSerializer(BasePostSerializer):
-    class Meta:
-        model = OrgWork
-        fields = '__all__'
-
-
-class OppositionSerializer(BasePostSerializer):
-    class Meta:
-        model = Opposition
-        fields = '__all__'
-
-
-class GrantSerializer(BasePostSerializer):
-    class Meta:
-        model = Grant
-        fields = '__all__'
-
-
-class AwardSerializer(BasePostSerializer):
-    class Meta:
-        model = Award
-        fields = '__all__'
-
-
-class OwnerCheckSerializer(serializers.Serializer):
-    isOwner = serializers.BooleanField()
-    isAdmin = serializers.BooleanField()
 
 
 class RegisterSerializer(serializers.ModelSerializer):
