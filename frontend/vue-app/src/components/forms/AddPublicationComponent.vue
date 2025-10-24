@@ -28,29 +28,14 @@
       </div>
 
       <div class="form-row">
-        <label>Внешние авторы:</label>
-        <div class="authors-container">
-          <div v-for="(author, index) in formData.external_authors_list" :key="index" class="author-input">
-            <input 
-              type="text" 
-              v-model="formData.external_authors_list[index]" 
-              :placeholder="`Автор ${index + 1}`"
-            >
-            <button type="button" @click="removeExternalAuthor(index)" class="btn-remove">×</button>
-          </div>
-          <button type="button" @click="addExternalAuthor" class="btn-add-author">+ Добавить автора</button>
-        </div>
-      </div>
-
-      <div class="form-row">
-        <label>Соавторы с факультета:</label>
+        <label>Соавторы с инст. Эйлера:</label>
         <div class="authors-container">
           <div v-for="(authorId, index) in formData.internal_authors_list" :key="index" class="author-input">
             <div class="searchable-select">
               <input
                 type="text"
                 v-model="searchQueries[index]"
-                :placeholder="`Поиск сотрудника...`"
+                :placeholder="`Начните вводить...`"
                 class="form-select search-input"
                 @focus="openDropdown(index)"
                 @input="handleSearchInput(index)"
@@ -76,90 +61,122 @@
           <button type="button" @click="addInternalAuthor" class="btn-add-author">
             + Добавить соавтора
           </button>
+          <label class="text-hint"> Не нужно пытаться добавить себя! Вы будете автоматически добавлены в публикацию как автор.</label>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Иные соавторы:</label>
+        <div class="authors-container">
+          <div v-for="(author, index) in formData.external_authors_list" :key="index" class="author-input">
+            <input 
+              type="text" 
+              v-model="formData.external_authors_list[index]" 
+              :placeholder="`И.О. Фамилия`"
+            >
+            <button type="button" @click="removeExternalAuthor(index)" class="btn-remove">×</button>
+          </div>
+          <button type="button" @click="addExternalAuthor" class="btn-add-author">+ Добавить соавтора</button>
         </div>
       </div>
     
       <div class="checkbox-row">
-        <label>Направлено на публикацию: </label>
+        <label>Направлено в журнал: </label>
         <div class="checkbox-section">
           <input type="checkbox" v-model="showSubmissionFields">
         </div>
       </div>
+    </div>
 
-      <div v-if="showSubmissionFields" class="form-section">
-        <h3>Данные об отправке в журнал</h3>
-        
-        <div class="form-row">
-          <label for="submission_date">Дата отправки:</label>
-          <input type="date" id="submission_date" v-model="formData.submission_date">
+    <div v-if="showSubmissionFields" class="form-section">
+      <h3>Данные об отправке в журнал</h3>
+      
+      <div class="form-row">
+        <label for="submission_date">Дата отправки:</label>
+        <input type="date" id="submission_date" v-model="formData.submission_date">
+      </div>
+
+      <div class="form-row">
+        <label for="journal_name">Название журнала:</label>
+        <input type="text" id="journal_name" v-model="formData.journal_name">
+      </div>
+
+      <div class="form-row">
+        <label for="journal_issn">ISSN журнала:</label>
+        <input type="text" id="journal_issn" v-model="formData.journal_issn">
+      </div>
+
+      <div class="checkbox-row">
+        <label>Принято к публикации: </label>
+        <div class="checkbox-section">
+          <input type="checkbox" v-model="showAcceptanceFields">
         </div>
+      </div>
+    </div>
 
-        <div class="form-row">
-          <label for="journal_name">Название журнала:</label>
-          <input type="text" id="journal_name" v-model="formData.journal_name">
+    <div v-if="showAcceptanceFields" class="form-section">
+      <h3>Данные о принятии статьи</h3>
+      
+      <div class="form-row">
+        <label for="acceptance_date">Дата принятия:</label>
+        <input type="date" id="acceptance_date" v-model="formData.acceptance_date">
+      </div>
+
+      <div class="checkbox-row">
+        <label>Опубликовано (online-first): </label>
+        <div class="checkbox-section">
+          <input type="checkbox" v-model="showOnlineFirstFields">
         </div>
+      </div>
+    </div>
 
-        <div class="form-row">
-          <label for="journal_issn">ISSN журнала:</label>
-          <input type="text" id="journal_issn" v-model="formData.journal_issn">
+    <div v-if="showOnlineFirstFields" class="form-section">
+      <h3>Данные о публикации (online-first)</h3>
+      
+      <div class="form-row">
+        <label for="online_first_date">Дата онлайн-публикации:</label>
+        <input type="date" id="online_first_date" v-model="formData.online_first_date">
+      </div>
+
+      <div class="form-row">
+        <label for="doi">DOI:</label>
+        <input type="text" id="doi" v-model="formData.doi">
+      </div>
+
+      <div class="checkbox-row">
+        <label>Опубликовано в печатной версии: </label>
+        <div class="checkbox-section">
+          <input type="checkbox" v-model="showPublicationFields">
         </div>
+      </div>
+    </div>
 
-        <div class="checkbox-row">
-          <label>Принято к публикации: </label>
-          <div class="checkbox-section">
-            <input type="checkbox" v-model="showAcceptanceFields">
+    <div v-if="showPublicationFields" class="form-section">
+      <h3>Данные о публикации в печатной версии</h3>
+      
+      <div class="form-row">
+        <label for="publication_date">Дата публикации:</label>
+        <input type="date" id="publication_date" v-model="formData.publication_date">
+      </div>
+
+      <div class="form-row triple-column">
+        <label>Детали публикации:</label>
+        <div class="multi-input-container">
+          <div class="input-group">
+            <input type="text" v-model="formData.journal_volume" placeholder="Том">
+          </div>
+          <div class="input-group">
+            <input type="text" v-model="formData.journal_number" placeholder="Номер">
+          </div>
+          <div class="input-group">
+            <input type="text" v-model="formData.journal_pages_or_article_number" placeholder="Страницы">
           </div>
         </div>
       </div>
 
-      <div v-if="showAcceptanceFields" class="form-section">
-        <h3>Данные о принятии статьи</h3>
-        
-        <div class="form-row">
-          <label for="acceptance_date">Дата принятия:</label>
-          <input type="date" id="acceptance_date" v-model="formData.acceptance_date">
-        </div>
-
-        <div class="form-row">
-          <label for="doi">DOI:</label>
-          <input type="text" id="doi" v-model="formData.doi">
-        </div>
-
-        <div class="checkbox-row">
-          <label>Опубликовано: </label>
-          <div class="checkbox-section">
-            <input type="checkbox" v-model="showPublicationFields">
-          </div>
-        </div>
-      </div>
-
-      <div v-if="showPublicationFields" class="form-section">
-        <h3>Данные о публикации</h3>
-        
-        <div class="form-row">
-          <label for="publication_date">Дата публикации:</label>
-          <input type="date" id="publication_date" v-model="formData.publication_date">
-        </div>
-
-        <div class="form-row triple-column">
-          <label>Детали публикации:</label>
-          <div class="multi-input-container">
-            <div class="input-group">
-              <input type="text" v-model="formData.journal_volume" placeholder="Том">
-            </div>
-            <div class="input-group">
-              <input type="text" v-model="formData.journal_number" placeholder="Номер">
-            </div>
-            <div class="input-group">
-              <input type="text" v-model="formData.journal_pages_or_article_number" placeholder="Страницы/Номер статьи">
-            </div>
-          </div>
-        </div>
-
-        <div class="checkbox-row">
-          <label for="journal_level">Уровень журнала:</label>
-          <input type="text" id="journal_level" v-model="formData.journal_level">
-        </div>
+      <div class="form-row">
+        <label for="journal_level">Уровень журнала:</label>
+        <input type="text" id="journal_level" v-model="formData.journal_level" placeholder="Ссылка на уровень журнала в Белом списке">
       </div>
     </div>
   </div>
@@ -182,6 +199,7 @@ const emit = defineEmits(['update:modelValue'])
 
 const showSubmissionFields = ref(false)
 const showAcceptanceFields = ref(false)
+const showOnlineFirstFields = ref(false)
 const showPublicationFields = ref(false)
 const isUpdating = ref(false)
 const availableUsers = ref([])
@@ -192,6 +210,7 @@ const searchQueries = ref([''])
 
 const currentStatus = computed(() => {
   if (showPublicationFields.value) return 'published'
+  if (showOnlineFirstFields.value) return 'online_first'
   if (showAcceptanceFields.value) return 'accepted'
   if (showSubmissionFields.value) return 'submitted'
   return 'preprint'
@@ -267,7 +286,7 @@ const formData = reactive({
   language: '',
   preprint_date: '',
   preprint_number: '',
-  external_authors_list: [''],
+  external_authors_list: [],
   internal_authors_list: [], 
   
   submission_date: '',
@@ -275,6 +294,8 @@ const formData = reactive({
   journal_issn: '',
   
   acceptance_date: '',
+  
+  online_first_date: '',
   doi: '',
   
   publication_date: '',
@@ -323,7 +344,7 @@ const loadAvailableUsers = async () => {
 const prepareFormData = () => {
   const cleanedData = { ...formData }
   
-  const dateFields = ['submission_date', 'acceptance_date', 'publication_date']
+  const dateFields = ['submission_date', 'acceptance_date', 'online_first_date', 'publication_date']
   dateFields.forEach(field => {
     if (cleanedData[field] === '') {
       cleanedData[field] = null
@@ -356,7 +377,6 @@ const removeExternalAuthor = (index) => {
   }
 }
 
-
 const handleClickOutside = (event) => {
   const searchContainers = document.querySelectorAll('.searchable-select')
   let isInside = false
@@ -369,7 +389,6 @@ const handleClickOutside = (event) => {
     activeDropdownIndex.value = -1
   }
 }
-
 
 watch(currentStatus, (newStatus) => {
   formData.current_status = newStatus
@@ -386,8 +405,15 @@ watch(showSubmissionFields, (newValue) => {
 
 watch(showAcceptanceFields, (newValue) => {
   if (!newValue) {
-    showPublicationFields.value = false
+    showOnlineFirstFields.value = false
     formData.acceptance_date = ''
+  }
+})
+
+watch(showOnlineFirstFields, (newValue) => {
+  if (!newValue) {
+    showPublicationFields.value = false
+    formData.online_first_date = ''
     formData.doi = ''
   }
 })
@@ -414,7 +440,6 @@ watch(formData, () => {
   })
 }, { deep: true })
 
-
 watch(() => props.modelValue, (newValue, oldValue) => {
   if (isUpdating.value) return
   if (JSON.stringify(newValue) === JSON.stringify(oldValue)) return
@@ -423,8 +448,9 @@ watch(() => props.modelValue, (newValue, oldValue) => {
   
   if (newValue.current_status) {
     const status = newValue.current_status
-    showSubmissionFields.value = status === 'submitted' || status === 'accepted' || status === 'published'
-    showAcceptanceFields.value = status === 'accepted' || status === 'published'
+    showSubmissionFields.value = status === 'submitted' || status === 'accepted' || status === 'online_first' || status === 'published'
+    showAcceptanceFields.value = status === 'accepted' || status === 'online_first' || status === 'published'
+    showOnlineFirstFields.value = status === 'online_first' || status === 'published'
     showPublicationFields.value = status === 'published'
   }
 
@@ -446,7 +472,6 @@ watch(() => props.modelValue, (newValue, oldValue) => {
     searchQueries.value = ['']
   }
 
-  
   nextTick(() => {
     isUpdating.value = false
   })
@@ -593,6 +618,13 @@ select option:disabled {
 .search-input {
   width: 100%;
   box-sizing: border-box;
+}
+
+.text-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.25rem;
+  font-style: italic;
 }
 
 .no-results {

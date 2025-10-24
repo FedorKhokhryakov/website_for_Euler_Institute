@@ -7,53 +7,82 @@
       <p>{{ error }}</p>
     </div>
     <div v-else-if="report" class="report-content">
-      <div class="all-publications">
-        <h1>Публикации</h1>
-        <div 
-          v-for="publication in publications"
-          :key="publication.post.id"
-          class="post-card"
-        >
-          <span class="post-full-title">{{ getFullTitle(publication) }}</span>
-          <button class="btn-edit" @click="editPost(publication)" title="Редактировать публикацию">
-            ✏️
-          </button>
-          <button class="btn-delete" @click="deletePost(publication)" title="Удалить публикацию">
-            🗑️
-          </button>
-        </div>
-      </div>
-
-      <div class="all-presentations">
-        <h1>Доклады</h1>
-        <div 
-          v-for="presentation in presentations"
-          :key="presentation.id"
-          class="post-card"
-        >
-          <span class="post-full-title">{{ getFullTitle(presentation) }}</span>
-          <button class="btn-edit" @click="editPost(presentation)" title="Редактировать доклад">
-            ✏️
-          </button>
-          <button class="btn-delete" @click="deletePost(presentation)" title="Удалить доклад">
-            🗑️
+      <div class="content-section">
+        <div class="all-publications">
+          <h1 class="section-title">Публикации</h1>
+          <div 
+            v-for="publication in publications"
+            :key="publication.post.id"
+            class="post-card"
+          >
+            <span class="post-full-title">{{ getFullTitle(publication) }}</span>
+            <button class="btn-edit" @click="editPost(publication)" title="Редактировать публикацию">
+              ✏️
+            </button>
+            <button class="btn-delete" @click="deletePost(publication)" title="Удалить публикацию">
+              🗑️
+            </button>
+          </div>
+          <div v-if="publications.length === 0" class="empty-state">
+            Нет публикаций
+          </div>
+          <button class="btn-add-post" @click="addPublication">
+            Добавить публикацию
           </button>
         </div>
-      </div>
 
-      <button class="btn-add-post" @click="addPost">
-        Добавить новую запись
-      </button>
+        <div class="all-presentations">
+          <h1 class="section-title">Доклады</h1>
+          <div 
+            v-for="presentation in presentations"
+            :key="presentation.id"
+            class="post-card"
+          >
+            <span class="post-full-title">{{ getFullTitle(presentation) }}</span>
+            <button class="btn-edit" @click="editPost(presentation)" title="Редактировать доклад">
+              ✏️
+            </button>
+            <button class="btn-delete" @click="deletePost(presentation)" title="Удалить доклад">
+              🗑️
+            </button>
+          </div>
+          <div v-if="presentations.length === 0" class="empty-state">
+            Нет докладов
+          </div>
+          <button class="btn-add-post" @click="addPresentation">
+            Добавить доклад
+          </button>
+        </div>
+        <div class="report-field">
+            <label for="external_publications">Внешние публикации:</label>
+            <textarea 
+              id="external_publications" 
+              v-model="external_publications"
+              rows="2"
+            ></textarea>
+          </div>
+      </div>
 
       <div class="science-report">
-        <div class="report-text">
-          <label for="report_text">Развернутый отчет о полученных результатах:</label>
-          <textarea 
-            id="report_text" 
-            v-model="report_text"
-            rows="3"
-            :disabled="isTextareaDisabled"
-          ></textarea>
+        <div class="report-fields">
+          <div class="report-field">
+            <label for="brief_report">Краткий отчет:</label>
+            <textarea 
+              id="brief_report" 
+              v-model="brief_report"
+              rows="2"
+            ></textarea>
+          </div>
+
+          <div class="report-field">
+            <label for="report_text">Развернутый отчет о полученных результатах:</label>
+            <textarea 
+              id="report_text" 
+              v-model="report_text"
+              rows="3"
+              :disabled="isTextareaDisabled"
+            ></textarea>
+          </div>
         </div>
 
         <button 
@@ -62,12 +91,12 @@
           @click="submitReport" 
           title="Отослать отчет на проверку"
         >
-          Отослать
+          Подписать
         </button>
 
         <div v-if="showAdminControls" class="admin-controls">
           <div class="admin-comment-input">
-            <label for="admin_comment_input">Комментарий админа:</label>
+            <label for="admin_comment_input">Комментарий администратора:</label>
             <textarea 
               id="admin_comment_input" 
               v-model="admin_comment_input"
@@ -121,6 +150,8 @@ const report = ref(null)
 const loading = ref(true)
 const error = ref('')
 const report_text = ref('')
+const brief_report = ref('')
+const external_publications = ref('')
 const report_status = ref('')
 const admin_comment = ref('')
 const admin_comment_input = ref('')
@@ -243,15 +274,21 @@ const deletePost = async (post) => {
   }
 }
 
-const addPost = () => {
-  router.push('/posts/create/')
+const addPublication = () => {
+  router.push('/posts/create?type=publication')
+}
+
+const addPresentation = () => {
+  router.push('/posts/create?type=presentation')
 }
 
 const submitReport = async () => {
   if (confirm(`Вы уверены, что хотите отослать отчет на проверку?`)) {
     try {
       const requestData = {
-        year_report: report_text.value
+        year_report: report_text.value,
+        brief_report: brief_report.value,
+        external_publications: external_publications.value
       }
 
       await publicationsAPI.sendReportOnChecking(year.value, requestData)
@@ -320,19 +357,28 @@ const approveReport = async () => {
 .report-content {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
+}
+
+.content-section {
+  background-color: var(--color-surface);
+  padding: 1.5rem;
 }
 
 .all-publications, .all-presentations {
-  padding: 1rem;
-  margin-bottom: -1rem
+  margin-bottom: 2rem;
 }
 
-.all-publications h1, .all-presentations h1 {
+.all-publications:last-child, .all-presentations:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
   color: var(--color-text-primary);
   margin-bottom: 1rem;
   font-size: 1.5rem;
   font-weight: 600;
+  text-align: center;
 }
 
 .post-card {
@@ -342,6 +388,7 @@ const approveReport = async () => {
   padding: 0.75rem;
   border: 1px solid var(--color-border);
   margin-bottom: 0.5rem;
+  background-color: var(--color-surface);
 }
 
 .post-full-title {
@@ -369,6 +416,15 @@ const approveReport = async () => {
   border-color: var(--color-secondary);
 }
 
+.empty-state {
+  text-align: center;
+  padding: 1rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  border: 1px dashed var(--color-border);
+  margin-bottom: 0.5rem;
+}
+
 .btn-add-post {
   width: 100%;
   padding: 0.75rem;
@@ -385,31 +441,39 @@ const approveReport = async () => {
 }
 
 .science-report {
-  padding: 1rem;
+  background-color: var(--color-surface);
+  padding: 1.5rem;
 }
 
-.report-text {
+.report-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.report-field {
   margin-bottom: 1rem;
 }
 
-.report-text label {
+.report-field label {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
-.report-text textarea {
+.report-field textarea {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid var(--color-border);
   font-family: inherit;
   resize: vertical;
   box-sizing: border-box;
+  background-color: var(--color-background);
 }
 
-.report-text textarea:disabled {
-  background-color: var(--color-surface);
+.report-field textarea:disabled {
+  background-color: var(--color-surface-dark);
   color: var(--color-text-secondary);
   cursor: not-allowed;
 }
@@ -432,7 +496,7 @@ const approveReport = async () => {
   margin-bottom: 1rem;
   padding: 1rem;
   border: 1px solid var(--color-border);
-  background-color: var(--color-surface);
+  background-color: var(--color-surface-dark);
 }
 
 .admin-comment-input {
@@ -453,6 +517,7 @@ const approveReport = async () => {
   font-family: inherit;
   resize: vertical;
   box-sizing: border-box;
+  background-color: var(--color-background);
 }
 
 .admin-buttons {
@@ -490,7 +555,7 @@ const approveReport = async () => {
 
 .report-status {
   padding: 0.75rem;
-  background-color: var(--color-surface);
+  background-color: var(--color-surface-dark);
   border: 1px solid var(--color-border);
 }
 

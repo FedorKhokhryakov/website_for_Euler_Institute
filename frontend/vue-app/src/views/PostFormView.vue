@@ -2,7 +2,7 @@
   <div class="add-post">
     <form @submit.prevent="submitForm" class="post-form compact-form">
       <div class="form-section">
-        <div class="form-row">
+        <div class="form-row" v-if="!autoType">
           <label for="type">* Тип:</label>
           <select 
             id="type" 
@@ -15,6 +15,13 @@
             <option value="publication">Публикация</option>
             <option value="presentation">Доклад</option>
           </select>
+        </div>
+
+        <div v-if="autoType" class="form-row">
+          <label>Тип:</label>
+          <div class="auto-type-display">
+            {{ autoType === 'publication' ? 'Публикация' : 'Доклад' }}
+          </div>
         </div>
 
         <component
@@ -46,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { publicationsAPI } from '../services/api.js'
 import AddPublicationComponent from '../components/forms/AddPublicationComponent.vue'
@@ -65,6 +72,7 @@ const props = defineProps({
 
 const isSubmitting = ref(false)
 const postId = ref(null)
+const autoType = computed(() => route.query.type)
 
 const isEditMode = computed(() => props.mode === 'edit')
 const submitButtonText = computed(() => 
@@ -181,12 +189,23 @@ const resetForm = () => {
   }
 }
 
+watch(autoType, (newType) => {
+  if (newType && (newType === 'publication' || newType === 'presentation')) {
+    post.type = newType
+  }
+}, { immediate: true })
+
 onMounted(() => {
   loadPostData()
 })
 </script>
 
 <style scoped>
+.auto-type-display {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
 .add-post {
   max-width: 800px;
   margin: 0 auto;
