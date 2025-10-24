@@ -437,16 +437,7 @@ def get_all_users(request):
         user_roles = UserRole.objects.filter(user=current_user).select_related('role')
         role_names = [user_role.role.name for user_role in user_roles]
 
-        if 'MasterAdmin' in role_names:
-            visible_roles = ['SPbUUser', 'POMIUser']
-        elif 'SPbUAdmin' in role_names:
-            visible_roles = ['SPbUUser']
-        elif 'POMIAdmin' in role_names:
-            visible_roles = ['POMIUser']
-        else:
-            return Response({
-                'error': 'Доступ запрещен. Недостаточно прав.'
-            }, status=status.HTTP_403_FORBIDDEN)
+        visible_roles = ['SPbUUser', 'POMIUser']
 
         users_with_visible_roles = User.objects.filter(
             roles__role__name__in=visible_roles

@@ -3,16 +3,17 @@ import environ
 from pathlib import Path
 from datetime import timedelta
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 env = environ.Env()
+env_path = BASE_DIR / '.env'
 
 try:
-    environ.Env.read_env()
+    environ.Env.read_env(env_path)
 except:
     pass
 
 AUTH_USER_MODEL = 'main.User'
-
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 os.makedirs(BASE_DIR / 'static', exist_ok=True)
 os.makedirs(BASE_DIR / 'templates', exist_ok=True)
