@@ -75,10 +75,9 @@ const { user, isAdmin, isImpersonating, impersonator } = storeToRefs(authStore)
 
 const isReportsOpen = ref(false)
 
-const currentYear = new Date().getFullYear()
 const years = computed(() => {
   const yearsList = []
-  for (let year = 2014; year <= currentYear; year++) {
+  for (let year = 2023; year <= 2031; year++) {
     yearsList.push(year)
   }
   return yearsList.reverse()

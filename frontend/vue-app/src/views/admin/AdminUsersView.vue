@@ -167,7 +167,7 @@ const deleteUser = (user) => {
 }
 
 const addUser = () => {
-  router.push('/register')
+  router.push('/admin/add-user')
 }
 
 onMounted(() => {

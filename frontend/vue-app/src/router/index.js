@@ -10,6 +10,7 @@ import UserProfileView from '../views/UserProfileView.vue'
 import YearReportView from '../views/YearReportView.vue'
 import PostFormView from '../views/PostFormView.vue'
 
+import AddUserView from '../views/admin/AddUserView.vue'
 import AdminUsersView from '../views/admin/AdminUsersView.vue'
 import AdminReportsView from '../views/admin/AdminReportsView.vue'
 import NotFoundView from "../views/NotFoundView.vue"
@@ -81,6 +82,11 @@ const routes = [
         path: "user-view", 
         name: "AdminUsers",
         component: AdminUsersView
+      },
+      {
+        path: "add-user",
+        name: "AddUser",
+        component: AddUserView
       }
     ]
   },

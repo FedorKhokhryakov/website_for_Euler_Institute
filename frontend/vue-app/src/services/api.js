@@ -28,4 +28,5 @@ export const adminAPI = {
   setReportNewStatus: (user_id, year, data) => apiClient.post(`/api/set_science_report_new_status/${user_id}/${year}/`, data),
   getDBInfo: (data) => apiClient.post('/api/get_db_info/', data),
   getDBInfoBlob: (data) => apiClient.post('/api/get_db_info/', data, { responseType: 'blob' }),
+  createUser: (data) => apiClient.post('/api/create_user/', data),
 }
