@@ -15,17 +15,7 @@ from .utils import *
 
 SERIALIZER_MAP = {
     'publication': (Publication, PublicationReadSerializer),
-    'monograph': (Monograph, MonographSerializer),
     'presentation': (Presentation, PresentationReadSerializer),
-    'lectures': (Lecture, LectureSerializer),
-    'patents': (Patent, PatentSerializer),
-    'supervision': (Supervision, SupervisionSerializer),
-    'editing': (Editing, EditingSerializer),
-    'editorial_board': (EditorialBoard, EditorialBoardSerializer),
-    'org_work': (OrgWork, OrgWorkSerializer),
-    'opposition': (Opposition, OppositionSerializer),
-    'grants': (Grant, GrantSerializer),
-    'awards': (Award, AwardSerializer),
 }
 
 def get_serializer_by_type(post_type):
@@ -76,46 +66,6 @@ def get_user_info(request):
             'error': 'Ошибка при получении информации о пользователе',
             'details': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-#GET /api/my_publications/
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_user_posts(request):
-    posts = Post.objects.filter(authors__user=request.user).select_related(
-        'publication', 'monograph', 'presentation', 'lecture', 'patent',
-        'supervision', 'editing', 'editorial_board', 'org_work',
-        'opposition', 'grant', 'award'
-    ).prefetch_related('authors')
-    
-    result = []
-    
-    for post in posts:
-        post_data = PostSerializer(post).data
-        
-        detailed_data = None
-        model_class, serializer_class = SERIALIZER_MAP[post.post_type]
-        related_name = post.post_type
-        if hasattr(post, related_name):
-            detailed_obj = getattr(post, related_name)
-            detailed_data = serializer_class(detailed_obj).data
-        
-        result.append({
-            'post': post_data,
-            'details': detailed_data,
-            'type': post.post_type
-        })
-    
-    return Response(result, status=status.HTTP_200_OK)
-
-
-#GET /api/all_publications/
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_all_publications(request):
-    publications = Post.objects.order_by('-created_at')
-    serializer = PublicationReadSerializer(publications, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # GET /api/get_post_information/{id}/
@@ -344,6 +294,46 @@ def delete_post(request, id):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_user(request):
+    try:
+        current_user = request.user
+
+        if not is_admin_user(current_user):
+            return Response({
+                'error': 'Доступ запрещен. Требуются права администратора.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = UserCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response({
+                'error': 'Ошибки валидации данных',
+                'details': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        roles_to_assign = request.data.get('roles', [])
+        can_assign, error_message = can_user_assign_roles(current_user, roles_to_assign)
+
+        if not can_assign:
+            return Response({
+                'error': error_message
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        user = serializer.save()
+
+        return Response({
+            'user_id': user.id
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при создании пользователя',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 # PUT /api/update_user/{id}
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
@@ -444,19 +434,20 @@ def get_all_users(request):
     try:
         current_user = request.user
 
-        user_role_exists = UserRole.objects.filter(
-            user_id=OuterRef('id'),
-            role__name__in=['SPbUUser', 'POMIUser']
-        )
-        regular_users = User.objects.annotate(
-            has_user_role=Exists(user_role_exists)
-        ).filter(has_user_role=True).prefetch_related('roles').order_by('second_name_rus', 'first_name_rus')
+        user_roles = UserRole.objects.filter(user=current_user).select_related('role')
+        role_names = [user_role.role.name for user_role in user_roles]
+
+        visible_roles = ['SPbUUser', 'POMIUser']
+
+        users_with_visible_roles = User.objects.filter(
+            roles__role__name__in=visible_roles
+        ).distinct().prefetch_related('roles').order_by('second_name_rus', 'first_name_rus')
 
         group_filter = request.GET.get('group')
         if group_filter in ['SPbU', 'POMI']:
-            regular_users = regular_users.filter(group=group_filter)
+            users_with_visible_roles = users_with_visible_roles.filter(group=group_filter)
 
-        serializer = UserInfoSerializer(regular_users, many=True)
+        serializer = UserInfoSerializer(users_with_visible_roles, many=True)
 
         return Response({
             'users': serializer.data
@@ -604,32 +595,6 @@ def set_science_report_new_status(request, user_id, year):
 
 
 ####################################################################################
-
-#GET /api/publications/{id}/check-owner/
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def check_publication_owner(request, id):
-    publication = get_object_or_404(Post, id=id)
-
-    is_owner = publication.created_by == id
-    is_admin = request.user.is_admin or request.user.is_superuser
-
-    serializer = OwnerCheckSerializer({
-        'isOwner': is_owner,
-        'isAdmin': is_admin
-    })
-
-    return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-#GET /api/users/{id}/
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_user_profile(request, id):
-    user = get_object_or_404(User, id=id)
-    serializer = UserSerializer(user)
-    return Response(serializer.data, status=status.HTTP_200_OK)
-
 
 # POST /api/impersonate/start/
 @api_view(['POST'])
@@ -824,33 +789,6 @@ def register_user(request):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def user_list(request):
-    users = User.objects.all()
-    serializer = UserListSerializer(users, many=True)
-    return Response(serializer.data)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def users_request(request):
-    users = User.objects.all()
-
-    data = []
-    for user in users:
-        full_name = " ".join(
-            filter(None, [user.last_name, user.first_name, getattr(user, "middle_name", "")])
-        )
-        data.append({
-            "id": user.id,
-            "full_name": full_name.strip(),
-            "email": user.email,
-            "position": getattr(user, "position", ""),
-        })
-
-    return Response(data, status=status.HTTP_200_OK)
-
 #/get_year_report
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -934,168 +872,6 @@ def get_year_report(request, year):
         return Response({
             'error': 'Ошибка при получении годового отчета',
             'details': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def download_report(request, id):
-    """
-    Скачивание отчета
-    GET /api/reports/{id}/download/
-    """
-    report = get_object_or_404(Report, id=id)
-
-    if not (request.user.is_staff or report.created_by == request.user or report.user == request.user):
-        return Response({
-            "error": "Доступ запрещен"
-        }, status=status.HTTP_403_FORBIDDEN)
-
-    if report.status != 'completed':
-        return Response({
-            "error": "Отчет еще не готов",
-            "status": report.status
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    if not report.file_path or not os.path.exists(report.file_path):
-        return Response({
-            "error": "Файл отчета не найден"
-        }, status=status.HTTP_404_NOT_FOUND)
-
-    try:
-        content_types = {
-            'rtf': 'application/rtf',
-            'pdf': 'application/pdf',
-            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        }
-
-        content_type = content_types.get(report.format, 'application/octet-stream')
-        response = FileResponse(open(report.file_path, 'rb'), content_type=content_type)
-        response['Content-Disposition'] = f'attachment; filename="{os.path.basename(report.file_path)}"'
-
-        return response
-
-    except Exception as e:
-        return Response({
-            "error": "Ошибка при загрузке файла",
-            "details": str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def list_reports(request):
-    """
-    GET /api/reports/
-    """
-    if request.user.is_staff:
-        reports = Report.objects.all()
-    else:
-        reports = Report.objects.filter(user=request.user)
-
-    serializer = ReportSerializer(reports, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def download_report_api(request):
-    if not request.user.is_staff:
-        return Response({
-            "error": "Доступ запрещен. Требуются права администратора."
-        }, status=status.HTTP_403_FORBIDDEN)
-
-    user_id = request.data.get('user_id')
-    year = request.data.get('year')
-    format_type = request.data.get('format', 'rtf')
-
-    if not user_id or not year:
-        return Response({
-            "error": "Обязательные поля: user_id и year"
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        year = int(year)
-    except (ValueError, TypeError):
-        return Response({
-            "error": "Неверный формат года"
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        user = User.objects.get(id=user_id)
-    except User.DoesNotExist:
-        return Response({
-            "error": "Пользователь не найден"
-        }, status=status.HTTP_404_NOT_FOUND)
-
-    try:
-        posts = Post.objects.filter(created_by=user, year=year).order_by("type", "year")
-
-        from collections import defaultdict
-        grouped = defaultdict(list)
-        for post in posts:
-            grouped[post.get_type_display()].append(post)
-
-        report_text = f"# Отчёт по публикациям пользователя {user.last_name} {user.first_name}{ (' ' + user.middle_name) or '' } за {year} год\n\n"
-        for type_name, items in grouped.items():
-            report_text += f"## {type_name}\n"
-            for p in items:
-                report_text += f"- {p.year}: {p.title}, ID: {p.article_identification_number or 'Без номера'}"
-                if p.web_page:
-                    report_text += f" ([ссылка]({p.web_page}))"
-                report_text += "\n"
-            report_text += "\n\n"
-            
-    except Exception as e:
-        return Response({
-            "error": "Ошибка при генерации отчета",
-            "details": str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    import tempfile
-    import os
-    from django.utils.text import slugify
-    from datetime import datetime
-    
-    try:
-        import pypandoc
-        try:
-            pypandoc.get_pandoc_version()
-        except OSError:
-            pypandoc.download_pandoc()
-    except ImportError:
-        return Response({
-            "error": "Библиотека pypandoc не установлена"
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    filename = f"report_{slugify(user.username)}_{year}_{datetime.now().strftime('%Y%m%d')}.rtf"
-    temp_dir = tempfile.gettempdir()
-    rtf_path = os.path.join(temp_dir, filename)
-
-    try:
-        pypandoc.convert_text(report_text, "rtf", format="md", outputfile=rtf_path, extra_args=["--standalone"])
-
-        with open(rtf_path, 'rb') as f:
-            response = HttpResponse(f.read(), content_type='application/rtf')
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
-            
-            import threading
-            def delete_file_later(file_path):
-                import time
-                time.sleep(15)
-                try:
-                    os.remove(file_path)
-                except:
-                    pass
-            
-            threading.Thread(target=delete_file_later, args=(rtf_path,)).start()
-            
-            return response
-
-    except Exception as e:
-        return Response({
-            "error": "Ошибка при генерации RTF файла",
-            "details": str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

@@ -3,25 +3,26 @@ import environ
 from pathlib import Path
 from datetime import timedelta
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 env = environ.Env()
+env_path = BASE_DIR / '.env'
 
 try:
-    environ.Env.read_env()
+    environ.Env.read_env(env_path)
 except:
     pass
 
 AUTH_USER_MODEL = 'main.User'
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-
 os.makedirs(BASE_DIR / 'static', exist_ok=True)
 os.makedirs(BASE_DIR / 'templates', exist_ok=True)
 os.makedirs(BASE_DIR / 'templates/registration', exist_ok=True)
 
-SECRET_KEY = env('SECRET_KEY', default='django-insecure-temporary-key-for-development')
-DEBUG = env.bool('DEBUG', default=True)
+SECRET_KEY = env('SECRET_KEY')
+DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['195.70.199.21', 'localhost', '127.0.0.1']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -30,7 +31,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'main',
+    'main.apps.MainConfig',
 ]
 
 MIDDLEWARE = [
