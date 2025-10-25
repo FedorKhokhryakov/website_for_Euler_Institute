@@ -423,7 +423,8 @@ class PostWithDetailsCreateSerializer(serializers.Serializer):
 class YearReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = YearReport
-        fields = ['id', 'year', 'report_text', 'status', 'admin_comment', 'created_at', 'updated_at']
+        fields = ['id', 'year', 'report_text', 'status', 'short_report_text',
+            'external_publications', 'admin_comment']
 
 class ScienceReportSubmitSerializer(serializers.Serializer):
     year_report = serializers.CharField(required=True, allow_blank=False)
@@ -617,3 +618,13 @@ class ReportCreateSerializer(serializers.ModelSerializer):
 
         except Exception as e:
             raise Exception(f"Ошибка конвертации отчета: {str(e)}")
+
+class ReportSaveSerializer(serializers.Serializer):
+    external_publications = serializers.CharField(required=False, allow_blank=True, default='')
+    short_report_text = serializers.CharField(required=False, allow_blank=True, default='')
+    report_text = serializers.CharField(required=True, allow_blank=False)
+
+    def validate_report_text(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Текст отчета не может быть пустым")
+        return value.strip()

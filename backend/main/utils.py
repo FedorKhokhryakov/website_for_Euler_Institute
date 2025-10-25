@@ -176,20 +176,19 @@ def get_post_details(post):
             'language': publication.language,
             'preprint_date': publication.preprint_date,
             'preprint_number': publication.preprint_number,
-            'preprint_document_file_path': publication.preprint_document_file_path,
             'submission_date': publication.submission_date,
             'journal_name': publication.journal_name,
             'journal_issn': publication.journal_issn,
-            'submission_document_file_path': publication.submission_document_file_path,
             'acceptance_date': publication.acceptance_date,
             'doi': publication.doi,
-            'accepted_document_file_path': publication.accepted_document_file_path,
             'publication_date': publication.publication_date,
             'journal_volume': publication.journal_volume,
             'journal_number': publication.journal_number,
             'journal_pages_or_article_number': publication.journal_pages_or_article_number,
             'journal_level': publication.journal_level,
-            'publicated_document_file_path': publication.publicated_document_file_path,
+            'preprint': get_file_info(publication.preprint_document_file_path),
+            'online_first': get_file_info(publication.submission_document_file_path),
+            'published': get_file_info(publication.publicated_document_file_path)
         }
 
         external_authors = [author.author_name for author in publication.external_authors.all()]
@@ -212,6 +211,20 @@ def get_post_details(post):
         }
 
     return {}
+
+def get_file_info(file_path):
+    if file_path and file_path.strip():
+        import os
+        file_name = os.path.basename(file_path)
+        return {
+            'exists': True,
+            'file_name': file_name
+        }
+    else:
+        return {
+            'exists': False,
+            'file_name': ''
+        }
 
 def quarter_to_dates(quarter: int, year: int):
     if quarter == 1:

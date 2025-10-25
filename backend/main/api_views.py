@@ -798,10 +798,9 @@ def get_year_report(request, year):
         year = int(year)
 
         from datetime import datetime
-        current_year = datetime.now().year
-        if year < 2000 or year > current_year + 1:
+        if year < 2023 or year > 2031:
             return Response({
-                'error': f'Некорректный год. Допустимый диапазон: 2000-{current_year + 1}'
+                'error': f'Некорректный год. Допустимый диапазон: 2023-2031'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         from django.db.models import Q
@@ -844,7 +843,9 @@ def get_year_report(request, year):
             year_report = YearReport.objects.create(
                 year=year,
                 report_text="",
-                status='idle'
+                short_report_text="",
+                external_publications="",
+                status='wip'
             )
             UserReport.objects.create(user=user, report=year_report)
 
@@ -852,6 +853,8 @@ def get_year_report(request, year):
             'id': year_report.id,
             'year': year_report.year,
             'report_text': year_report.report_text,
+            'short_report_text': year_report.short_report_text,
+            'external_publications': year_report.external_publications,
             'status': year_report.status,
             'admin_comment': year_report.admin_comment
             #'created_at': year_report.created_at,
@@ -962,3 +965,172 @@ def get_db_info(request):
         response = HttpResponse(error_text.encode('utf-8'), content_type='text/plain')
         response.status_code = 500
         return response
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def save_report(request, year):
+    try:
+        user = request.user
+        year = int(year)
+
+        if year < 2023 or year > 2031:
+            return Response({
+                'error': f'Некорректный год. Допустимый диапазон: 2023-2031'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ReportSaveSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'error': 'Ошибки валидации данных',
+                'details': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user_report = UserReport.objects.select_related('report').get(
+                user=user,
+                report__year=year
+            )
+            year_report = user_report.report
+        except UserReport.DoesNotExist:
+            year_report = YearReport.objects.create(
+                year=year,
+                report_text=serializer.validated_data['report_text'],
+                short_report_text=serializer.validated_data.get('short_report_text', ''),
+                external_publications=serializer.validated_data.get('external_publications', ''),
+                status='wip'
+            )
+            UserReport.objects.create(user=user, report=year_report)
+        else:
+            year_report.report_text = serializer.validated_data['report_text']
+            year_report.short_report_text = serializer.validated_data.get('short_report_text', '')
+            year_report.external_publications = serializer.validated_data.get('external_publications', '')
+            year_report.save()
+
+        return Response({
+            'status': year_report.status,
+            'year': year_report.year
+        }, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный формат года'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при сохранении отчета',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def sign_report(request, year):
+    try:
+        user = request.user
+        year = int(year)
+
+        if year < 2023 or year > 2031:
+            return Response({
+                'error': f'Некорректный год. Допустимый диапазон: 2023-2031'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ReportSaveSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'error': 'Ошибки валидации данных',
+                'details': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user_report = UserReport.objects.select_related('report').get(
+                user=user,
+                report__year=year
+            )
+            year_report = user_report.report
+        except UserReport.DoesNotExist:
+            year_report = YearReport.objects.create(
+                year=year,
+                report_text=serializer.validated_data['report_text'],
+                short_report_text=serializer.validated_data.get('short_report_text', ''),
+                external_publications=serializer.validated_data.get('external_publications', ''),
+                status='signed'
+            )
+            UserReport.objects.create(user=user, report=year_report)
+        else:
+            year_report.report_text = serializer.validated_data['report_text']
+            year_report.short_report_text = serializer.validated_data.get('short_report_text', '')
+            year_report.external_publications = serializer.validated_data.get('external_publications', '')
+            year_report.status = 'signed'
+            year_report.save()
+
+        return Response({
+            'status': year_report.status,
+            'year': year_report.year
+        }, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный формат года'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при подписании отчета',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_to_rework(request, user_id, year):
+    try:
+        admin_user = request.user
+
+        if not is_admin_user(admin_user):
+            return Response({
+                'error': 'Доступ запрещен. Требуются права администратора.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        target_user_id = int(user_id)
+        year = int(year)
+        target_user = get_object_or_404(User, id=target_user_id)
+
+        if year < 2023 or year > 2031:
+            return Response({
+                'error': f'Некорректный год. Допустимый диапазон: 2023-2031'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        admin_comment = request.data.get('admin_comment', '')
+
+        try:
+            user_report = UserReport.objects.select_related('report').get(
+                user=target_user,
+                report__year=year
+            )
+            year_report = user_report.report
+        except UserReport.DoesNotExist:
+            return Response({
+                'error': f'Отчет пользователя {target_user.username} за {year} год не найден'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        year_report.status = 'wip'
+        year_report.admin_comment = admin_comment
+        year_report.save()
+
+        return Response({
+            'user_id': target_user.id,
+            'username': target_user.username,
+            'year': year,
+            'new_status': 'wip',
+            'admin_comment': admin_comment,
+            'updated_by': admin_user.username
+        }, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный формат ID пользователя или года'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при отправке отчета на доработку',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

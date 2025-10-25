@@ -35,6 +35,9 @@ urlpatterns = [
     path('api/get_year_report/<int:year>/', api_views.get_year_report, name='get_year_report'),
     path('api/get_science_report_on_checking/<int:year>/', api_views.submit_science_report_on_checking, name='get_science_report'),
     path('api/set_science_report_new_status/<int:user_id>/<int:year>/', api_views.set_science_report_new_status, name='set_science_report_status'),
+    path('api/save_report/<int:year>/', api_views.save_report, name='save_report'),
+    path('api/sign_report/<int:year>/', api_views.sign_report, name='sign_report'),
+    path('api/admin/send_to_rework/<int:user_id>/<int:year>/', api_views.send_to_rework, name='send_to_rework'),
 
     path('api/get_db_info/', api_views.get_db_info, name='get_db_info'),
 
