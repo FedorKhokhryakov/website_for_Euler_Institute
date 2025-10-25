@@ -4,14 +4,17 @@ from django.http import HttpResponse, FileResponse
 from django.shortcuts import get_object_or_404
 from django.db.models import Exists, OuterRef
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.conf import settings
+from rest_framework.parsers import MultiPartParser
 
 from .serializer import *
 from .models import *
 from .utils import *
+
 
 SERIALIZER_MAP = {
     'publication': (Publication, PublicationReadSerializer),
@@ -339,25 +342,21 @@ def create_user(request):
 @permission_classes([IsAuthenticated])
 def update_user(request, id):
     try:
-        print(11111)
         current_user = request.user
         target_user_id = int(id)
-        print(2222)
         target_user = get_object_or_404(User, id=target_user_id)
-        print(33333)
+
         if not have_enough_rights(current_user, target_user):
             return Response({
                 'error': 'Доступ запрещен. Недостаточно прав для обновления профиля.'
             }, status=status.HTTP_403_FORBIDDEN)
-        print(44444)
+
         data = request.data
-        print("HI1")
         serializer = UserUpdateSerializer(
             target_user,
             data=data,
             partial=True
         )
-        print("HI2")
         if serializer.is_valid():
             updated_user = serializer.save()
 
@@ -1132,5 +1131,183 @@ def send_to_rework(request, user_id, year):
     except Exception as e:
         return Response({
             'error': 'Ошибка при отправке отчета на доработку',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+#POST /api/publications/{id}/upload_file/
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser])
+def upload_publication_file(request, id):
+    try:
+        post_id = int(id)
+
+        publication = get_object_or_404(
+            Publication.objects.select_related('post'),
+            post_id=post_id
+        )
+
+        if not publication.post.authors.filter(user=request.user).exists() and not is_admin_user(request.user):
+            return Response({
+                'error': 'Доступ запрещен. Вы не являетесь автором этой публикации.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = FileUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'error': 'Ошибки валидации данных',
+                'details': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        file = serializer.validated_data['file']
+        file_type = serializer.validated_data['file_type']
+        file_path = get_publication_file_path(publication, file_type, file.name)
+        full_file_path = os.path.join(settings.MEDIA_ROOT, file_path)
+
+        os.makedirs(os.path.dirname(full_file_path), exist_ok=True)
+
+        with open(full_file_path, 'wb+') as destination:
+            for chunk in file.chunks():
+                destination.write(chunk)
+
+        file_field = get_file_field_by_type(publication, file_type)
+        setattr(publication, file_field, file_path)
+        publication.save()
+
+        return Response({
+            'message': f'Файл успешно загружен',
+            'file_path': file_path,
+            'file_type': file_type
+        }, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный ID публикации'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при загрузке файла',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#GET /api/publications/{id}/download_file/?filetype=(preprint|online_first|published)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def download_publication_file(request, id):
+    try:
+        post_id = int(id)
+
+        publication = get_object_or_404(
+            Publication.objects.select_related('post'),
+            post_id=post_id  # Ищем по post_id
+        )
+
+        if not is_user_has_access_to_post(request.user, publication.post):
+            return Response({
+                'error': 'Доступ запрещен. У вас нет прав для просмотра этой публикации.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        file_type = request.GET.get('filetype')
+        if not file_type:
+            return Response({
+                'error': 'Не указан параметр filetype'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if file_type not in ['preprint', 'online_first', 'published']:
+            return Response({
+                'error': 'Недопустимый тип файла. Допустимые значения: preprint, online_first, published'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        file_info = get_file_info_by_type(publication, file_type)
+        if not file_info:
+            return Response({
+                'error': f'Файл типа {file_type} не найден для этой публикации'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        if not os.path.exists(file_info['full_path']):
+            return Response({
+                'error': 'Файл не найден на сервере'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            file = open(file_info['full_path'], 'rb')
+            response = FileResponse(file)
+
+            ext = file_info['name'].split('.')[-1].lower()
+            content_types = {
+                'pdf': 'application/pdf',
+                'doc': 'application/msword',
+                'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'txt': 'text/plain'
+            }
+            content_type = content_types.get(ext, 'application/octet-stream')
+
+            response['Content-Type'] = content_type
+            response['Content-Disposition'] = f'attachment; filename="{file_info["name"]}"'
+
+            return response
+
+        except IOError:
+            return Response({
+                'error': 'Ошибка при чтении файла'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный ID публикации'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при скачивании файла',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#DELETE /api/publications/{id}/delete_file/?filetype=(preprint|online_first|published)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_publication_file(request, id):
+    try:
+        post_id = int(id)
+
+        publication = get_object_or_404(
+            Publication.objects.select_related('post'),
+            post_id=post_id
+        )
+
+        if not publication.post.authors.filter(user=request.user).exists() and not is_admin_user(request.user):
+            return Response({
+                'error': 'Доступ запрещен. Вы не являетесь автором этой публикации.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        file_type = request.GET.get('filetype')
+        if not file_type:
+            return Response({
+                'error': 'Не указан параметр filetype'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if file_type not in ['preprint', 'online_first', 'published']:
+            return Response({
+                'error': 'Недопустимый тип файла. Допустимые значения: preprint, online_first, published'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        success = delete_publication_file_util(publication, file_type)
+
+        if success:
+            return Response({
+                'message': f'Файл типа {file_type} успешно удален'
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'error': f'Файл типа {file_type} не найден или не может быть удален'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+    except ValueError:
+        return Response({
+            'error': 'Некорректный ID публикации'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'error': 'Ошибка при удалении файла',
             'details': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

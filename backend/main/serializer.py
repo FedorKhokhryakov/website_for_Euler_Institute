@@ -628,3 +628,15 @@ class ReportSaveSerializer(serializers.Serializer):
         if not value.strip():
             raise serializers.ValidationError("Текст отчета не может быть пустым")
         return value.strip()
+
+class FileUploadSerializer(serializers.Serializer):
+    file = serializers.FileField(required=True)
+    file_type = serializers.ChoiceField(
+        choices=['preprint', 'online_first', 'published'],
+        required=True
+    )
+
+class FileResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    file_path = serializers.CharField(required=False)
+    file_type = serializers.CharField()

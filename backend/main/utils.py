@@ -1,6 +1,9 @@
 from .serializer import *
 from datetime import date, datetime, timedelta
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
+import os
+import uuid
+from django.conf import settings
 
 
 def is_admin_user(user):
@@ -473,3 +476,58 @@ def can_user_assign_roles(current_user, roles_to_assign):
         return True, ""
 
     return False, "Недостаточно прав для назначения ролей"
+
+
+def get_publication_file_path(publication, file_type, filename):
+    year = datetime.now().year
+    user_id = publication.post.authors.first().user.id if publication.post.authors.exists() else 0
+
+    ext = filename.split('.')[-1] if '.' in filename else 'pdf'
+
+    unique_filename = f"{file_type}-{year}-{user_id}-{uuid.uuid4().hex[:8]}.{ext}"
+
+    return os.path.join('publications', str(year), unique_filename)
+
+
+def get_file_field_by_type(publication, file_type):
+    file_mapping = {
+        'preprint': 'preprint_document_file_path',
+        'online_first': 'submission_document_file_path',
+        'published': 'publicated_document_file_path'
+    }
+    return file_mapping.get(file_type)
+
+
+def get_file_info_by_type(publication, file_type):
+    file_field = get_file_field_by_type(publication, file_type)
+    if not file_field:
+        return None
+
+    file_path = getattr(publication, file_field, None)
+    if not file_path or not file_path.strip():
+        return None
+
+    return {
+        'path': file_path,
+        'name': os.path.basename(file_path),
+        'full_path': os.path.join(settings.MEDIA_ROOT, file_path) if settings.MEDIA_ROOT else file_path
+    }
+
+
+def delete_publication_file_util(publication, file_type):
+    file_info = get_file_info_by_type(publication, file_type)
+    if not file_info:
+        return False
+
+    try:
+        full_path = file_info['full_path']
+        if os.path.exists(full_path):
+            os.remove(full_path)
+
+        file_field = get_file_field_by_type(publication, file_type)
+        setattr(publication, file_field, '')
+        publication.save()
+
+        return True
+    except Exception:
+        return False

@@ -41,6 +41,10 @@ urlpatterns = [
 
     path('api/get_db_info/', api_views.get_db_info, name='get_db_info'),
 
+    path('api/publications/<int:id>/upload_file/', api_views.upload_publication_file, name='upload_publication_file'),
+    path('api/publications/<int:id>/download_file/', api_views.download_publication_file, name='download_publication_file'),
+    path('api/publications/<int:id>/delete_file/', api_views.delete_publication_file, name='delete_publication_file'),
+
     #path('api/reports/', api_views.create_report, name='create-report'),
     #path('api/reports2/', api_views.list_reports, name='list-reports'),
     #path('api/reports/<int:id>/download/', api_views.download_report, name='download-report'),
