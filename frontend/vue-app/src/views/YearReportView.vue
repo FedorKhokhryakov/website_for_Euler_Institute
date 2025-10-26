@@ -53,24 +53,25 @@
             Добавить доклад
           </button>
         </div>
-        <div class="report-field">
-            <label for="external_publications">Внешние публикации:</label>
-            <textarea 
-              id="external_publications" 
-              v-model="external_publications"
-              rows="2"
-            ></textarea>
-          </div>
       </div>
 
       <div class="science-report">
+        <div class="report-field">
+          <label for="external_publications">Внешние публикации:</label>
+          <textarea 
+            id="external_publications" 
+            v-model="external_publications"
+            rows="2"
+          ></textarea>
+        </div>
         <div class="report-fields">
           <div class="report-field">
-            <label for="brief_report">Краткий отчет:</label>
+            <label for="short_report_text">Краткий отчет:</label>
             <textarea 
-              id="brief_report" 
-              v-model="brief_report"
+              id="short_report_text" 
+              v-model="short_report_text"
               rows="2"
+              :disabled="isTextareaDisabled"
             ></textarea>
           </div>
 
@@ -86,9 +87,17 @@
         </div>
 
         <button 
+          class="btn-submit" 
+          @click="saveReport" 
+          title="Сохранить научный отчет"
+        >
+          Сохранить
+        </button>
+
+        <button 
           v-if="showUserSubmitButton"
           class="btn-submit" 
-          @click="submitReport" 
+          @click="signReport" 
           title="Отослать отчет на проверку"
         >
           Подписать
@@ -112,19 +121,12 @@
             >
               Отклонить
             </button>
-            <button 
-              class="btn-approve" 
-              @click="approveReport"
-              title="Подписать отчет"
-            >
-              Принять
-            </button>
           </div>
         </div>
 
         <div class="report-status">
           <div class="status-item">
-            <strong>Статус отчета:</strong> {{ report_status }}
+            <strong>Статус отчета:</strong> {{ getReportStatus(report_status) }}
           </div>
           <div class="admin-comment" v-if="admin_comment">
             <strong>Комментарий админа:</strong> {{ admin_comment }}
@@ -138,7 +140,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter} from 'vue-router'
-import { publicationsAPI, adminAPI } from '../services/api'
+import { publicationsAPI, adminAPI, reportAPI} from '../services/api'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
@@ -150,25 +152,23 @@ const report = ref(null)
 const loading = ref(true)
 const error = ref('')
 const report_text = ref('')
-const brief_report = ref('')
+const short_report_text = ref('')
 const external_publications = ref('')
 const report_status = ref('')
 const admin_comment = ref('')
 const admin_comment_input = ref('')
 
 const isAdminReviewing = computed(() => {
-  return (authStore.isImpersonating || authStore.isAdmin) && report_status.value === 'on_checking'
+  return (authStore.isImpersonating || authStore.isAdmin) && report_status.value === 'signed'
 })
 
 const isTextareaDisabled = computed(() => {
-  return report_status.value === 'on_checking' || 
-         report_status.value === 'signed' ||
+  return report_status.value === 'signed' ||
          isAdminReviewing.value
 })
 
 const showUserSubmitButton = computed(() => {
-  return (report_status.value === 'idle' || report_status.value === 'to_rework') && 
-         !isAdminReviewing.value
+  return report_status.value === 'wip'
 })
 
 const showAdminControls = computed(() => {
@@ -200,6 +200,8 @@ const loadYearReport = async () => {
     report.value = response.data;
     if (report.value.year_report) {
       report_text.value = report.value.year_report.report_text
+      short_report_text.value = report.value.year_report.short_report_text
+      external_publications.value = report.value.year_report.external_publications
       report_status.value = report.value.year_report.status
       admin_comment.value = report.value.year_report.admin_comment
     }
@@ -258,6 +260,10 @@ const getStatusText = (status) => {
   return statusMap[status] || status
 }
 
+const getReportStatus = (status) => {
+  return status === "wip" ? "В работе" : "Подписан"
+}
+
 const editPost = (post) => {
   router.push(`/posts/edit/${post.post.id}`)
 }
@@ -279,23 +285,39 @@ const addPublication = () => {
 }
 
 const addPresentation = () => {
-  router.push('/posts/create?type=presentation')
 }
 
-const submitReport = async () => {
-  if (confirm(`Вы уверены, что хотите отослать отчет на проверку?`)) {
+const saveReport = async () => {
+  try {
+    const requestData = {
+      report_text: report_text.value,
+      short_report_text: short_report_text.value,
+      external_publications: external_publications.value
+    }
+
+    await reportAPI.saveReport(year.value, requestData)
+    alert('Отчет успешно сохранен')
+  } catch (err) {
+    console.error('Ошибка сохранения:', err)
+    alert('Не удалось сохранить отчет')
+  }
+}
+
+const signReport = async () => {
+  if (confirm(`Вы уверены, что хотите подписать отчет?`)) {
     try {
       const requestData = {
-        year_report: report_text.value,
-        brief_report: brief_report.value,
+        report_text: report_text.value,
+        short_report_text: short_report_text.value,
         external_publications: external_publications.value
       }
 
-      await publicationsAPI.sendReportOnChecking(year.value, requestData)
+      await reportAPI.signReport(year.value, requestData)
       await loadYearReport()
+      alert('Отчет успешно подписан')
     } catch (err) {
-      console.error('Ошибка отправки:', err)
-      alert('Не удалось отправить отчет на проверку')
+      console.error('Ошибка подписания:', err)
+      alert('Не удалось подписать отчет')
     }
   }
 }
@@ -304,12 +326,12 @@ const rejectReport = async () => {
   if (confirm(`Вы уверены, что хотите отклонить отчет?`)) {
     try {
       const requestData = {
-        new_status: 'to_rework',
+        new_status: 'wip',
         admin_comment: admin_comment_input.value
       }
 
       const targetUserId = authStore.user?.id
-      await adminAPI.setReportNewStatus(targetUserId, year.value, requestData)
+      await adminAPI.sendReportToRework(targetUserId, year.value, requestData)
       await loadYearReport()
     } catch (err) {
       console.error('Ошибка отклонения отчета:', err)
@@ -318,23 +340,6 @@ const rejectReport = async () => {
   }
 }
 
-const approveReport = async () => {
-  if (confirm(`Вы уверены, что хотите подписать отчет?`)) {
-    try {
-      const requestData = {
-        new_status: 'signed',
-        admin_comment: admin_comment_input.value || ''
-      }
-
-      const targetUserId = authStore.user?.id
-      await adminAPI.setReportNewStatus(targetUserId, year.value, requestData)
-      await loadYearReport()
-    } catch (err) {
-      console.error('Ошибка подписания отчета:', err)
-      alert('Не удалось подписать отчет')
-    }
-  }
-}
 </script>
 
 <style scoped>
@@ -486,6 +491,7 @@ const approveReport = async () => {
   cursor: pointer;
   font-size: 1rem;
   margin-bottom: 1rem;
+  margin-right: 0.75rem;
 }
 
 .btn-submit:hover {

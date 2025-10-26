@@ -79,6 +79,47 @@
           <button type="button" @click="addExternalAuthor" class="btn-add-author">+ Добавить соавтора</button>
         </div>
       </div>
+
+      <div class="form-row">
+        <label>Файл препринта:</label>
+        <div class="file-upload-section">
+          <div class="file-actions">
+            <input 
+              type="file" 
+              ref="preprintFileInput"
+              @change="handleFileUpload('preprint', $event)"
+              accept=".pdf,.doc,.docx,.txt"
+              style="display: none"
+            >
+            <button 
+              type="button" 
+              @click="$refs.preprintFileInput.click()"
+              class="btn-upload"
+            >
+              Загрузить файл
+            </button>
+            <button 
+              type="button" 
+              @click="downloadFile('preprint')"
+              class="btn-download"
+              :disabled="!canDownloadFile('preprint')"
+            >
+              Скачать
+            </button>
+            <button 
+              type="button" 
+              @click="deleteFile('preprint')"
+              class="btn-delete"
+              :disabled="!canDeleteFile('preprint')"
+            >
+              Удалить
+            </button>
+          </div>
+          <div v-if="hasFile('preprint')" class="file-name">
+            {{ getFileName('preprint') }}
+          </div>
+        </div>
+      </div>
     
       <div class="checkbox-row">
         <label>Направлено в журнал: </label>
@@ -143,6 +184,47 @@
         <input type="text" id="doi" v-model="formData.doi">
       </div>
 
+      <div class="form-row">
+        <label>Файл публикации (online-first):</label>
+        <div class="file-upload-section">
+          <div class="file-actions">
+            <input 
+              type="file" 
+              ref="onlineFirstFileInput"
+              @change="handleFileUpload('online_first', $event)"
+              accept=".pdf,.doc,.docx,.txt"
+              style="display: none"
+            >
+            <button 
+              type="button" 
+              @click="$refs.onlineFirstFileInput.click()"
+              class="btn-upload"
+            >
+              Загрузить файл
+            </button>
+            <button 
+              type="button" 
+              @click="downloadFile('online_first')"
+              class="btn-download"
+              :disabled="!canDownloadFile('online_first')"
+            >
+              Скачать
+            </button>
+            <button 
+              type="button" 
+              @click="deleteFile('online_first')"
+              class="btn-delete"
+              :disabled="!canDeleteFile('online_first')"
+            >
+              Удалить
+            </button>
+          </div>
+          <div v-if="hasFile('online_first')" class="file-name">
+            {{ getFileName('online_first') }}
+          </div>
+        </div>
+      </div>
+
       <div class="checkbox-row">
         <label>Опубликовано в печатной версии: </label>
         <div class="checkbox-section">
@@ -178,13 +260,53 @@
         <label for="journal_level">Уровень журнала:</label>
         <input type="text" id="journal_level" v-model="formData.journal_level" placeholder="Ссылка на уровень журнала в Белом списке">
       </div>
+      <div class="form-row">
+        <label>Файл публикации в журнале:</label>
+        <div class="file-upload-section">
+          <div class="file-actions">
+            <input 
+              type="file" 
+              ref="publishedFileInput"
+              @change="handleFileUpload('published', $event)"
+              accept=".pdf,.doc,.docx,.txt"
+              style="display: none"
+            >
+            <button 
+              type="button" 
+              @click="$refs.publishedFileInput.click()"
+              class="btn-upload"
+            >
+              Загрузить файл
+            </button>
+            <button 
+              type="button" 
+              @click="downloadFile('published')"
+              class="btn-download"
+              :disabled="!canDownloadFile('published')"
+            >
+              Скачать
+            </button>
+            <button 
+              type="button" 
+              @click="deleteFile('published')"
+              class="btn-delete"
+              :disabled="!canDeleteFile('published')"
+            >
+              Удалить
+            </button>
+          </div>
+          <div v-if="hasFile('published')" class="file-name">
+            {{ getFileName('published') }}
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, watch, computed, nextTick, onMounted, onUnmounted} from 'vue'
-import { usersAPI } from '../../services/api.js'
+import { usersAPI, publicationsAPI} from '../../services/api.js'
 import { useAuthStore } from '../../stores/auth'
 
 const props = defineProps({
@@ -192,6 +314,10 @@ const props = defineProps({
     type: Object,
     required: true,
     default: () => ({})
+  },
+  postId: {
+    type: Number,
+    default: null
   }
 })
 
@@ -207,6 +333,12 @@ const isLoadingUsers = ref(false)
 const authStore = useAuthStore()
 const activeDropdownIndex = ref(-1)
 const searchQueries = ref([''])
+
+const modifiedFiles = ref({
+  preprint: false,
+  online_first: false, 
+  published: false
+})
 
 const currentStatus = computed(() => {
   if (showPublicationFields.value) return 'published'
@@ -272,6 +404,10 @@ const removeInternalAuthor = (index) => {
 const isUserSelected = (userId) => {
   return formData.internal_authors_list.includes(userId) && userId !== ''
 }
+
+const isPublicationSaved = computed(() => {
+  return props.postId !== null && props.postId !== undefined
+})
 
 const getUserDisplayName = (user) => {
   const parts = []
@@ -364,9 +500,12 @@ const prepareFormData = () => {
   
   cleanedData.internal_authors_list = cleanedData.internal_authors_list.filter(id => id !== '')
   
+  if (props.modelValue.files) {
+    cleanedData.files = { ...props.modelValue.files}
+  }
+
   return cleanedData
 }
-
 const addExternalAuthor = () => {
   formData.external_authors_list.push('')
 }
@@ -389,6 +528,163 @@ const handleClickOutside = (event) => {
     activeDropdownIndex.value = -1
   }
 }
+
+const handleFileUpload = (fileType, event) => {
+  const file = event.target.files[0]
+  
+  if (!file) return
+
+  const fileFieldName = `${fileType}_file`
+  formData[fileFieldName] = file
+  
+  modifiedFiles.value[fileType] = true
+
+  const updatedDetails = {
+    ...props.modelValue,
+    [fileFieldName]: file,
+    files: {
+      ...props.modelValue.files,
+      [fileType]: { 
+        exists: true, 
+        file_name: file.name
+      }
+    }
+  }
+
+  updatedDetails[fileFieldName] = file
+  
+  console.log('Обновленные details:', updatedDetails)
+  emit('update:modelValue', updatedDetails)
+  event.target.value = ''
+}
+
+
+const downloadFile = async (fileType) => {
+  if (!canDownloadFile(fileType)) {
+    if (!isPublicationSaved.value) {
+      alert('Файл можно скачать только после сохранения публикации')
+    } else if (modifiedFiles.value[fileType]) {
+      alert('Сначала сохраните изменения файла')
+    } else {
+      alert('Файл не найден на сервере')
+    }
+    return
+  }
+
+  try {
+    if (!props.postId) {
+      console.error('ID публикации не указан')
+      alert('Нельзя скачать файл для новой публикации')
+      return
+    }
+    
+    console.log('Скачивание файла:', fileType, 'для публикации:', props.postId)
+    const response = await publicationsAPI.downloadPublicationFile(props.postId, fileType)
+    
+    const blob = new Blob([response.data])
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    
+    const contentDisposition = response.headers['content-disposition']
+    let fileName = getFileName(fileType) || `${fileType}_file`
+    
+    if (contentDisposition) {
+      const fileNameMatch = contentDisposition.match(/filename="(.+)"/)
+      if (fileNameMatch) fileName = fileNameMatch[1]
+    }
+    
+    link.href = url
+    link.setAttribute('download', fileName)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+    
+  } catch (error) {
+    console.error('Ошибка скачивания файла:', error)
+    alert('Ошибка при скачивании файла: ' + (error.response?.data?.error || error.message))
+  }
+}
+
+
+const deleteFile = async (fileType) => {
+  if (!canDeleteFile(fileType)) {
+    if (!isPublicationSaved.value) {
+      alert('Файл можно удалить только после сохранения публикации')
+    } else if (modifiedFiles.value[fileType]) {
+      alert('Сначала сохраните изменения файла')
+    } else {
+      alert('Файл не найден на сервере')
+    }
+    return
+  }
+
+  if (!confirm('Вы уверены, что хотите удалить файл?')) return
+
+  try {
+    if (props.postId) {
+      await publicationsAPI.deletePublicationFile(props.postId, fileType)
+    }
+    
+    const updatedDetails = {
+      ...props.modelValue,
+      files: {
+        ...props.modelValue.files,
+        [fileType]: { exists: false, file_name: '' }
+      }
+    }
+    
+    delete updatedDetails[`${fileType}_file`]
+    
+    emit('update:modelValue', updatedDetails)
+    console.log('Файл удален:', fileType)
+    
+  } catch (error) {
+    console.error('Ошибка удаления файла:', error)
+    alert('Ошибка при удалении файла: ' + (error.response?.data?.error || error.message))
+  }
+}
+
+const hasFile = (fileType) => {
+  return props.modelValue.files?.[fileType]?.exists ||
+         props.modelValue[`${fileType}_file`] instanceof File
+}
+
+const getFileName = (fileType) => {
+  const fileData = props.modelValue.files?.[fileType]
+  if (!fileData) return ''
+  
+  if (fileData.file_name) {
+    return fileData.file_name
+  }
+  
+  if (fileData.file instanceof File) {
+    return fileData.file.name
+  }
+  
+  return ''
+}
+
+const canDownloadFile = (fileType) => {
+  return isPublicationSaved.value && 
+         hasFile(fileType) && 
+         !modifiedFiles.value[fileType]
+}
+
+const canDeleteFile = (fileType) => {
+  return isPublicationSaved.value && 
+         hasFile(fileType) && 
+         !modifiedFiles.value[fileType]
+}
+
+const resetModifiedFlags = () => {
+  modifiedFiles.value = {
+    preprint: false,
+    online_first: false,
+    published: false
+  }
+}
+
 
 watch(currentStatus, (newStatus) => {
   formData.current_status = newStatus
@@ -433,6 +729,14 @@ watch(formData, () => {
   
   isUpdating.value = true
   const cleanedData = prepareFormData()
+
+  const fileFields = ['preprint_file', 'online_first_file', 'published_file']
+  fileFields.forEach(field => {
+    if (props.modelValue[field] instanceof File) {
+      cleanedData[field] = props.modelValue[field]
+    }
+  })
+
   emit('update:modelValue', cleanedData)
   
   nextTick(() => {
@@ -445,7 +749,13 @@ watch(() => props.modelValue, (newValue, oldValue) => {
   if (JSON.stringify(newValue) === JSON.stringify(oldValue)) return
   
   isUpdating.value = true
-  
+
+  Object.assign(formData, newValue)
+
+  if (Array.isArray(newValue.internal_authors_list)) {
+    formData.internal_authors_list = newValue.internal_authors_list.filter(id => id !== authStore.user?.id)
+  }
+
   if (newValue.current_status) {
     const status = newValue.current_status
     showSubmissionFields.value = status === 'submitted' || status === 'accepted' || status === 'online_first' || status === 'published'
@@ -454,28 +764,18 @@ watch(() => props.modelValue, (newValue, oldValue) => {
     showPublicationFields.value = status === 'published'
   }
 
-  Object.keys(formData).forEach(key => {
-    if (newValue[key] !== undefined && formData[key] !== newValue[key]) {
-      if (key === 'internal_authors_list' && Array.isArray(newValue[key])) {
-        formData[key] = newValue[key].filter(id => id !== authStore.user?.id)
-        nextTick(() => {
-          initializeSearchQueries()
-        })
-      } else {
-        formData[key] = newValue[key]
-      }
-    }
+  nextTick(() => {
+    initializeSearchQueries()
   })
-  
-  if (!Array.isArray(formData.internal_authors_list)) {
-    formData.internal_authors_list = []
-    searchQueries.value = ['']
+
+  if (props.postId) {
+    resetModifiedFlags()
   }
 
   nextTick(() => {
     isUpdating.value = false
   })
-}, { immediate: true })
+}, { immediate: true})
 
 onMounted(() => {
   loadAvailableUsers()
@@ -662,5 +962,58 @@ select option:disabled {
 
 .dropdown-item:last-child {
   border-bottom: none;
+}
+
+.file-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.file-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.file-name {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.25rem;
+  font-style: italic;
+  padding: 0.25rem;
+}
+
+.btn-upload, .btn-download, .btn-delete {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-upload:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-download:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-delete:hover {
+  background: var(--color-secondary);
+  color: white;
+}
+
+.btn-download:disabled, .btn-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-download:disabled:hover, .btn-delete:disabled:hover {
+  background: var(--color-surface);
+  color: inherit;
 }
 </style>
