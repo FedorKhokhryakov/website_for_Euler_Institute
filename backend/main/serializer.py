@@ -248,56 +248,7 @@ class UserUpdateSerializer(BaseUserSerializer):
 class BasePostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
-        fields = [
-            'id', 'type', 'title', 'authors', 'authorCount', 'receivedDate',
-            'decisionDate', 'publishedDate', 'journal', 'volume', 'issue',
-            'articleId', 'pages', 'year', 'language', 'webpage', 'facultyCoauthors',
-            'comment', 'userId', 'createdAt', 'updatedAt', 'status'
-        ]
-
-    def get_authors(self, obj):
-        return obj.authors_strings
-
-    def get_userId(self, obj):
-        return obj.created_by.id if obj.created_by else None
-
-    def get_authorCount(self, obj):
-        if obj.authors_string:
-            authors = [a.strip() for a in obj.authors_string.split(',') if a.strip()]
-            return len(authors)
-        return 0
-
-    def get_title(self, obj):
-        return obj.title
-
-    def get_receivedDate(self, obj):
-        return obj.received_date
-
-    def get_decisionDate(self, obj):
-        return obj.decision_date
-
-    def get_publishedDate(self, obj):
-        return obj.published_date
-
-    def get_journal(self, obj):
-        type_mapping = {
-            'publication': 'Публикация',
-            'monograph': 'Монография',
-            'reports': 'Доклад',
-            'lectures': 'Курс лекций',
-            'patents': 'Патент',
-            'supervision': 'Научное руководство',
-            'editing': 'Редактирование научных изданий',
-            'editorial_board': 'Работа в ред. коллегии',
-            'org_work': 'Научно-организационная работа',
-            'opposition': 'Оппонирование',
-            'grants': 'Грант',
-            'awards': 'Награда'
-        }
-        return type_mapping.get(obj.type, 'Публикация')
-
-    def get_facultyCoauthors(self, obj):
-        return obj.authors.count() > 1
+        fields = ['id', 'type', 'comment', 'created_at', 'updated_at']
 
 
 class BaseExternalAuthorSerializer(serializers.ModelSerializer):
