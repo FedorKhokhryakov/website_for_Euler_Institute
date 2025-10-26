@@ -354,7 +354,7 @@ const generateReport = async () => {
       requestData.science_reports = Boolean(requestData.science_reports)
     }
 
-    const response = await adminAPI.getDBInfoBlob(requestData)
+    const response = await adminAPI.getDBInfo(requestData)
 
     const blob = response.data
     const url = window.URL.createObjectURL(blob)

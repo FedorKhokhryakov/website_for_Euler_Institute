@@ -303,6 +303,7 @@ onMounted(() => loadUserData())
   padding: 1rem;
   max-width: 900px;
   margin: 0 auto;
+  background-color: var(--color-surface)
 }
 
 .profile-header {

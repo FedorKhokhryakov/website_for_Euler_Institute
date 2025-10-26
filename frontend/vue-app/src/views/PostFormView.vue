@@ -29,6 +29,7 @@
           :model-value="post.details"
           @update:model-value="handleDetailsUpdate"
           v-if="post.type"
+          :post-id="postId"
         />
 
         <div class="form-row" v-if="post.type">
@@ -72,6 +73,7 @@ const props = defineProps({
 
 const isSubmitting = ref(false)
 const postId = ref(null)
+
 const autoType = computed(() => route.query.type)
 
 const isEditMode = computed(() => props.mode === 'edit')
@@ -108,7 +110,7 @@ const handleTypeChange = () => {
 const loadPostData = async () => {
   if (isEditMode.value && route.params.id) {
     try {
-      postId.value = route.params.id
+      postId.value = parseInt(route.params.id)
       const response = await publicationsAPI.getPostInformation(postId.value)
       console.log("Загруженные данные: ", response.data)
       const postData = response.data
@@ -128,6 +130,8 @@ const loadPostData = async () => {
 
 const formatPostData = () => {
   const details = { ...post.details }
+
+  delete details.files
   
   const dateFields = ['preprint_date', 'submission_date', 'acceptance_date', 'publication_date']
   dateFields.forEach(field => {
@@ -139,7 +143,6 @@ const formatPostData = () => {
   if (details.internal_authors_list && !Array.isArray(details.internal_authors_list)) {
     details.internal_authors_list = []
   }
-
 
   return {
     post: {
@@ -158,19 +161,44 @@ const submitForm = async () => {
   try {
     const formattedData = formatPostData()
 
-    console.log("Подтверждение формы: ", formattedData)
+    const formData = new FormData()
+
+    formData.append('type', formattedData.post.type)
+    formData.append('comment', formattedData.post.comment || '')
+
+    Object.keys(formattedData.details).forEach(key => {
+      const value = formattedData.details[key]
+      
+      if (value instanceof File) {
+        formData.append(key, value)
+      } else if (key === 'files') {
+        return
+      } else if (Array.isArray(value)) {
+        value.forEach(item => formData.append(key, item))
+      } else if (value !== null && value !== undefined) {
+        formData.append(key, String(value))
+      }
+    })
+
+    for (let [key, value] of formData.entries()) {
+      console.log(`FormData: ${key} =`, value)
+    }
     
     if (isEditMode.value) {
-      const response = await publicationsAPI.updatePost(postId.value, formattedData)
+      const response = await publicationsAPI.updatePost(postId.value, formData)
       if (response.status === 200) {
         alert('Запись успешно обновлена!')
         router.back()
       }
     } else {
-      const response = await publicationsAPI.createPost(formattedData)
+      const response = await publicationsAPI.createPost(formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
       if (response.status === 201) {
         alert('Запись успешно добавлена!')
-        resetForm()
+        router.back()
       }
     }
   } catch (error) {
@@ -195,6 +223,7 @@ watch(autoType, (newType) => {
   }
 }, { immediate: true })
 
+
 onMounted(() => {
   loadPostData()
 })
@@ -210,6 +239,7 @@ onMounted(() => {
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
+  background-color: var(--color-surface);
 }
 
 .compact-form {
