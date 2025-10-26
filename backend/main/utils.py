@@ -1,6 +1,9 @@
 from .serializer import *
 from datetime import date, datetime, timedelta
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
+import os
+import uuid
+from django.conf import settings
 
 
 def is_admin_user(user):
@@ -28,19 +31,17 @@ def validate_post_data(post_type, data):
     errors = {}
 
     if post_type == 'publication':
-        details = data.get('details', {})
-
         required_fields = ['title', 'language', 'preprint_date', 'preprint_number', 'current_status']
         for field in required_fields:
-            if not details.get(field):
+            if not data.get(field):
                 errors[field] = f'Поле {field} обязательно для публикации'
 
         date_fields = ['preprint_date', 'submission_date', 'acceptance_date', 'publication_date']
         for field in date_fields:
-            if details.get(field):
+            if data.get(field):
                 try:
                     from datetime import datetime
-                    datetime.fromisoformat(details[field].replace('Z', '+00:00'))
+                    datetime.fromisoformat(data[field].replace('Z', '+00:00'))
                 except (ValueError, TypeError):
                     errors[field] = f'Неверный формат даты для поля {field}'
 
@@ -176,20 +177,21 @@ def get_post_details(post):
             'language': publication.language,
             'preprint_date': publication.preprint_date,
             'preprint_number': publication.preprint_number,
-            'preprint_document_file_path': publication.preprint_document_file_path,
             'submission_date': publication.submission_date,
             'journal_name': publication.journal_name,
             'journal_issn': publication.journal_issn,
-            'submission_document_file_path': publication.submission_document_file_path,
             'acceptance_date': publication.acceptance_date,
             'doi': publication.doi,
-            'accepted_document_file_path': publication.accepted_document_file_path,
             'publication_date': publication.publication_date,
             'journal_volume': publication.journal_volume,
             'journal_number': publication.journal_number,
             'journal_pages_or_article_number': publication.journal_pages_or_article_number,
             'journal_level': publication.journal_level,
-            'publicated_document_file_path': publication.publicated_document_file_path,
+            'files': {
+                'preprint': get_file_info(publication.preprint_document_file_path),
+                'online_first': get_file_info(publication.submission_document_file_path),
+                'published': get_file_info(publication.publicated_document_file_path)
+            }
         }
 
         external_authors = [author.author_name for author in publication.external_authors.all()]
@@ -208,10 +210,25 @@ def get_post_details(post):
             'language': presentation.language,
             'description': presentation.description,
             'presentation_place': presentation.presentation_place,
-            'presentation_date': presentation.presentation_date
+            'presentation_date': presentation.presentation_date,
+            'files': {}
         }
 
     return {}
+
+def get_file_info(file_path):
+    if file_path and file_path.strip():
+        import os
+        file_name = os.path.basename(file_path)
+        return {
+            'exists': True,
+            'file_name': file_name
+        }
+    else:
+        return {
+            'exists': False,
+            'file_name': ''
+        }
 
 def quarter_to_dates(quarter: int, year: int):
     if quarter == 1:
@@ -460,3 +477,58 @@ def can_user_assign_roles(current_user, roles_to_assign):
         return True, ""
 
     return False, "Недостаточно прав для назначения ролей"
+
+
+def get_publication_file_path(publication, file_type, filename):
+    year = datetime.now().year
+    user_id = publication.post.authors.first().user.id if publication.post.authors.exists() else 0
+
+    ext = filename.split('.')[-1] if '.' in filename else 'pdf'
+
+    unique_filename = f"{file_type}-{year}-{user_id}-{uuid.uuid4().hex[:8]}.{ext}"
+
+    return os.path.join('publications', str(year), unique_filename)
+
+
+def get_file_field_by_type(publication, file_type):
+    file_mapping = {
+        'preprint': 'preprint_document_file_path',
+        'online_first': 'submission_document_file_path',
+        'published': 'publicated_document_file_path'
+    }
+    return file_mapping.get(file_type)
+
+
+def get_file_info_by_type(publication, file_type):
+    file_field = get_file_field_by_type(publication, file_type)
+    if not file_field:
+        return None
+
+    file_path = getattr(publication, file_field, None)
+    if not file_path or not file_path.strip():
+        return None
+
+    return {
+        'path': file_path,
+        'name': os.path.basename(file_path),
+        'full_path': os.path.join(settings.MEDIA_ROOT, file_path) if settings.MEDIA_ROOT else file_path
+    }
+
+
+def delete_publication_file_util(publication, file_type):
+    file_info = get_file_info_by_type(publication, file_type)
+    if not file_info:
+        return False
+
+    try:
+        full_path = file_info['full_path']
+        if os.path.exists(full_path):
+            os.remove(full_path)
+
+        file_field = get_file_field_by_type(publication, file_type)
+        setattr(publication, file_field, '')
+        publication.save()
+
+        return True
+    except Exception:
+        return False

@@ -9,7 +9,7 @@ from django.contrib.auth import authenticate
 
 from euler import settings
 from .models import *
-from .utils import is_admin_user
+from .utils import *
 
 
 class LoginSerializer(serializers.Serializer):
@@ -396,24 +396,63 @@ class PublicationCreateSerializer(BaseDetailCreateSerializer, BaseCreateUpdateMi
         default=[]
     )
 
+    preprint_file = serializers.FileField(required=False, write_only=True, allow_null=True)
+    online_first_file = serializers.FileField(required=False, write_only=True, allow_null=True)
+    published_file = serializers.FileField(required=False, write_only=True, allow_null=True)
+
     class Meta(BaseDetailCreateSerializer.Meta):
         model = Publication
 
     def create(self, validated_data):
+        preprint_file = validated_data.pop('preprint_file', None)
+        online_first_file = validated_data.pop('online_first_file', None)
+        published_file = validated_data.pop('published_file', None)
         external_authors = validated_data.pop('external_authors_list', [])
         publication = super().create(validated_data)
+
+        self.handle_files(publication, {
+            'preprint': preprint_file,
+            'online_first': online_first_file,
+            'published': published_file
+        })
+
         self.handle_external_authors(publication, external_authors)
         return publication
 
     def update(self, instance, validated_data):
+        preprint_file = validated_data.pop('preprint_file', None)
+        online_first_file = validated_data.pop('online_first_file', None)
+        published_file = validated_data.pop('published_file', None)
         external_authors = validated_data.pop('external_authors_list', None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
+        self.handle_files(instance, {
+            'preprint': preprint_file,
+            'online_first': online_first_file,
+            'published': published_file
+        })
+
         self.handle_external_authors(instance, external_authors)
         return instance
+
+    def handle_files(self, publication, files_dict):
+        for file_type, file_obj in files_dict.items():
+            if file_obj:
+                file_path = get_publication_file_path(publication, file_type, file_obj.name)
+                full_file_path = os.path.join(settings.MEDIA_ROOT, file_path)
+                os.makedirs(os.path.dirname(full_file_path), exist_ok=True)
+                
+                with open(full_file_path, 'wb+') as destination:
+                    for chunk in file_obj.chunks():
+                        destination.write(chunk)
+                
+                file_field = get_file_field_by_type(publication, file_type)
+                setattr(publication, file_field, file_path)
+        
+        publication.save()
 
 
 class PresentationCreateSerializer(BaseDetailCreateSerializer):
@@ -434,6 +473,15 @@ class PostWithDetailsCreateSerializer(serializers.Serializer):
         details_data = validated_data['details']
         post_type = post_data['type']
 
+        if request.FILES:
+            for file_key in request.FILES:
+                if file_key.startswith('preprint_file'):
+                    details_data['preprint_file'] = request.FILES[file_key]
+                elif file_key.startswith('online_first_file'):
+                    details_data['online_first_file'] = request.FILES[file_key]
+                elif file_key.startswith('published_file'):
+                    details_data['published_file'] = request.FILES[file_key]
+
         post = Post.objects.create(
             type=post_type,
             comment=post_data.get('comment', '')
@@ -441,7 +489,7 @@ class PostWithDetailsCreateSerializer(serializers.Serializer):
         PostAuthor.objects.create(post=post, user=request.user)
 
         if post_type == 'publication':
-            self.create_publication(post, details_data)
+            self.create_publication(post, details_data, request.user)
         elif post_type == 'presentation':
             self.create_presentation(post, details_data)
         else:
@@ -450,12 +498,21 @@ class PostWithDetailsCreateSerializer(serializers.Serializer):
 
         return post
 
-    def create_publication(self, post, details_data):
+    def create_publication(self, post, details_data, current_user):
+        internal_authors = details_data.pop('internal_authors_list', [])
         external_authors = details_data.pop('external_authors_list', [])
 
         serializer = PublicationCreateSerializer(data=details_data, context=self.context)
         serializer.is_valid(raise_exception=True)
         publication = serializer.save(post=post)
+
+        for user_id in internal_authors:
+            if user_id and user_id != current_user.id:
+                try:
+                    user_obj = User.objects.get(id=user_id)
+                    PostAuthor.objects.get_or_create(post=post, user=user_obj)
+                except User.DoesNotExist:
+                    continue
 
         for author_name in external_authors:
             ExternalPublicationAuthor.objects.create(
@@ -472,7 +529,8 @@ class PostWithDetailsCreateSerializer(serializers.Serializer):
 class YearReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = YearReport
-        fields = ['id', 'year', 'report_text', 'status', 'admin_comment', 'created_at', 'updated_at']
+        fields = ['id', 'year', 'report_text', 'status', 'short_report_text',
+            'external_publications', 'admin_comment']
 
 class ScienceReportSubmitSerializer(serializers.Serializer):
     year_report = serializers.CharField(required=True, allow_blank=False)
@@ -666,3 +724,25 @@ class ReportCreateSerializer(serializers.ModelSerializer):
 
         except Exception as e:
             raise Exception(f"Ошибка конвертации отчета: {str(e)}")
+
+class ReportSaveSerializer(serializers.Serializer):
+    external_publications = serializers.CharField(required=False, allow_blank=True, default='')
+    short_report_text = serializers.CharField(required=False, allow_blank=True, default='')
+    report_text = serializers.CharField(required=True, allow_blank=False)
+
+    def validate_report_text(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Текст отчета не может быть пустым")
+        return value.strip()
+
+class FileUploadSerializer(serializers.Serializer):
+    file = serializers.FileField(required=True)
+    file_type = serializers.ChoiceField(
+        choices=['preprint', 'online_first', 'published'],
+        required=True
+    )
+
+class FileResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    file_path = serializers.CharField(required=False)
+    file_type = serializers.CharField()
