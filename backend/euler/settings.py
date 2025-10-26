@@ -22,6 +22,9 @@ os.makedirs(BASE_DIR / 'templates/registration', exist_ok=True)
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env.bool('DEBUG', default=False)
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 ALLOWED_HOSTS = ['195.70.199.21', 'localhost', '127.0.0.1']
 
 INSTALLED_APPS = [

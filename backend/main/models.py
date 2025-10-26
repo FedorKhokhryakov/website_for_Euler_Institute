@@ -51,16 +51,16 @@ class UserRole(models.Model):
 
 class YearReport(models.Model):
     STATUS_CHOICES = [
-        ('idle', 'Черновик'),
-        ('on_checking', 'На проверке'),
-        ('to_rework', 'На доработку'),
+        ('wip', 'В работе'),
         ('signed', 'Подписан'),
     ]
 
     year = models.IntegerField(validators=[MinValueValidator(2000), MaxValueValidator(2100)])
     report_text = models.TextField()
+    short_report_text = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='idle')
     admin_comment = models.TextField(blank=True)
+    external_publications = models.TextField(blank=True)
     #created_at = models.DateTimeField(auto_now_add=True)
     #updated_at = models.DateTimeField(auto_now=True)
     #users = models.ManyToManyField(User, through='UserReport')

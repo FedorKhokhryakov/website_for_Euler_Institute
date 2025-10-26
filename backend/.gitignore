@@ -1,2 +1,5 @@
 main/migrations/*
 main/__pycache__/*
+.*
+db.*
+files/*

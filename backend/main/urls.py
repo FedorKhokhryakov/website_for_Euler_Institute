@@ -35,8 +35,15 @@ urlpatterns = [
     path('api/get_year_report/<int:year>/', api_views.get_year_report, name='get_year_report'),
     path('api/get_science_report_on_checking/<int:year>/', api_views.submit_science_report_on_checking, name='get_science_report'),
     path('api/set_science_report_new_status/<int:user_id>/<int:year>/', api_views.set_science_report_new_status, name='set_science_report_status'),
+    path('api/save_report/<int:year>/', api_views.save_report, name='save_report'),
+    path('api/sign_report/<int:year>/', api_views.sign_report, name='sign_report'),
+    path('api/send_to_rework/<int:user_id>/<int:year>/', api_views.send_to_rework, name='send_to_rework'),
 
     path('api/get_db_info/', api_views.get_db_info, name='get_db_info'),
+
+    path('api/publications/<int:id>/upload_file/', api_views.upload_publication_file, name='upload_publication_file'),
+    path('api/publications/<int:id>/download_file/', api_views.download_publication_file, name='download_publication_file'),
+    path('api/publications/<int:id>/delete_file/', api_views.delete_publication_file, name='delete_publication_file'),
 
     #path('api/reports/', api_views.create_report, name='create-report'),
     #path('api/reports2/', api_views.list_reports, name='list-reports'),
