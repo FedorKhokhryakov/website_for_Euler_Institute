@@ -82,6 +82,7 @@ class Publication(models.Model):
         PREPRINT = "preprint", "Препринт"
         SUBMITTED = "submitted", "Отправлено"
         ACCEPTED = "accepted", "Принято"
+        ONLINE_FIRST_PUBLISHED = "online_first", "Опубликовано online-first"
         PUBLISHED = "published", "Опубликовано"
 
     post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name='publication')
@@ -99,8 +100,11 @@ class Publication(models.Model):
     submission_document_file_path = models.CharField(max_length=500, blank=True)
 
     acceptance_date = models.DateField(null=True, blank=True)
-    doi = models.CharField(max_length=100, blank=True)
     accepted_document_file_path = models.CharField(max_length=500, blank=True)
+
+    online_first_publication_date = models.DateField(null=True, blank=True)
+    doi = models.CharField(max_length=100, blank=True)
+    online_first_document_file_path = models.CharField(max_length=500, blank=True)
 
     publication_date = models.DateField(null=True, blank=True)
     journal_volume = models.IntegerField(null=True, blank=True)
