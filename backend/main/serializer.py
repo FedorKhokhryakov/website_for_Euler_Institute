@@ -109,7 +109,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
             'second_name_eng': {'required': False, 'allow_blank': True},
             'first_name_eng': {'required': False, 'allow_blank': True},
             'middle_name_eng': {'required': False, 'allow_blank': True},
-            'email': {'required': False, 'allow_blank': True},
+            'email': {'required': True, 'allow_blank': True},
         }
 
     def validate_login(self, value):
@@ -166,13 +166,13 @@ class UserCreateSerializer(serializers.ModelSerializer):
             'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
             'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
             'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-            'ф': 'f', 'х': 'kh', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'shch',
-            'ы': 'y', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+            'ф': 'f', 'х': 'kh', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'shch', 'ъ': '',
+            'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
             'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'E',
             'Ж': 'Zh', 'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M',
             'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U',
-            'Ф': 'F', 'Х': 'Kh', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Shch',
-            'Ы': 'Y', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya'
+            'Ф': 'F', 'Х': 'Kh', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Shch', 'Ъ': '',
+            'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya'
         }
 
         result = ''
@@ -231,8 +231,6 @@ class UserUpdateSerializer(BaseUserSerializer):
 
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
-
-        print("HI")
 
         for attr, value in validated_data.items():
             if value is not None:
@@ -295,7 +293,8 @@ class PublicationReadSerializer(serializers.ModelSerializer):
             'id', 'current_status', 'title', 'language', 'preprint_date',
             'preprint_number', 'preprint_document_file_path', 'submission_date',
             'journal_name', 'journal_issn', 'submission_document_file_path',
-            'acceptance_date', 'doi', 'accepted_document_file_path',
+            'acceptance_date', 'accepted_document_file_path', 
+            'online_first_publication_date', 'doi', 'online_first_document_file_path',
             'publication_date', 'journal_volume', 'journal_number',
             'journal_pages_or_article_number', 'journal_level',
             'publicated_document_file_path', 'external_authors', 'external_authors_list'
@@ -488,7 +487,8 @@ class ScienceReportSubmitSerializer(serializers.Serializer):
 
     def validate_year_report(self, value):
         if not value.strip():
-            raise serializers.ValidationError("Текст отчета не может быть пустым")
+            # raise serializers.ValidationError("Текст отчета не может быть пустым")
+            pass
         return value.strip()
 
 class ScienceReportStatusUpdateSerializer(serializers.Serializer):
@@ -637,7 +637,6 @@ class ReportCreateSerializer(serializers.ModelSerializer):
         except Exception as e:
             report.status = 'failed'
             report.save()
-            print(f"Ошибка генерации отчета {report.id}: {str(e)}")
 
     def generate_report_content(self, report):
         posts = Post.objects.filter(authors__user=report.user, year=report.year).order_by("type", "year")

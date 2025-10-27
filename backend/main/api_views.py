@@ -178,9 +178,6 @@ def create_post(request):
             'details': details_data
         }
 
-
-        print("Serializer data:", serializer_data)
-
         serializer = PostWithDetailsCreateSerializer(
             data=serializer_data,
             context={'request': request}
@@ -195,7 +192,6 @@ def create_post(request):
                 'type': post_type
             }, status=status.HTTP_201_CREATED)
         else:
-            print("Serializer errors:", serializer.errors)
             return Response({
                 'error': 'Ошибки валидации данных',
                 'details': serializer.errors

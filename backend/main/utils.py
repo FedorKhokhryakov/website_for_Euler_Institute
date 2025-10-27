@@ -36,7 +36,7 @@ def validate_post_data(post_type, data):
             if not data.get(field):
                 errors[field] = f'Поле {field} обязательно для публикации'
 
-        date_fields = ['preprint_date', 'submission_date', 'acceptance_date', 'publication_date']
+        date_fields = ['preprint_date', 'submission_date', 'acceptance_date', 'online_first_publication_date', 'publication_date']
         for field in date_fields:
             if data.get(field):
                 try:
@@ -126,10 +126,8 @@ def have_enough_rights(current_user, target_user):
 
     if is_master_admin(current_user):
         return True
-    print(7777)
     current_user_groups = get_user_admin_groups(current_user)
     target_user_group = target_user.group
-    print(8888)
 
     if target_user_group in current_user_groups:
         return True
@@ -181,6 +179,7 @@ def get_post_details(post):
             'journal_name': publication.journal_name,
             'journal_issn': publication.journal_issn,
             'acceptance_date': publication.acceptance_date,
+            'online_first_publication_date': publication.online_first_publication_date,
             'doi': publication.doi,
             'publication_date': publication.publication_date,
             'journal_volume': publication.journal_volume,
@@ -189,7 +188,7 @@ def get_post_details(post):
             'journal_level': publication.journal_level,
             'files': {
                 'preprint': get_file_info(publication.preprint_document_file_path),
-                'online_first': get_file_info(publication.submission_document_file_path),
+                'online_first': get_file_info(publication.online_first_document_file_path),
                 'published': get_file_info(publication.publicated_document_file_path)
             }
         }
@@ -493,7 +492,7 @@ def get_publication_file_path(publication, file_type, filename):
 def get_file_field_by_type(publication, file_type):
     file_mapping = {
         'preprint': 'preprint_document_file_path',
-        'online_first': 'submission_document_file_path',
+        'online_first': 'online_first_document_file_path',
         'published': 'publicated_document_file_path'
     }
     return file_mapping.get(file_type)
