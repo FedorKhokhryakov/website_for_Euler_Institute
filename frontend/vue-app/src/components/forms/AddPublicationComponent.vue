@@ -175,8 +175,8 @@
       <h3>Данные о публикации (online-first)</h3>
       
       <div class="form-row">
-        <label for="online_first_date">Дата онлайн-публикации:</label>
-        <input type="date" id="online_first_date" v-model="formData.online_first_date">
+        <label for="online_first_publication_date">Дата онлайн-публикации:</label>
+        <input type="date" id="online_first_publication_date" v-model="formData.online_first_publication_date">
       </div>
 
       <div class="form-row">
@@ -431,7 +431,7 @@ const formData = reactive({
   
   acceptance_date: '',
   
-  online_first_date: '',
+  online_first_publication_date: '',
   doi: '',
   
   publication_date: '',
@@ -480,7 +480,7 @@ const loadAvailableUsers = async () => {
 const prepareFormData = () => {
   const cleanedData = { ...formData }
   
-  const dateFields = ['submission_date', 'acceptance_date', 'online_first_date', 'publication_date']
+  const dateFields = ['submission_date', 'acceptance_date', 'online_first_publication_date', 'publication_date']
   dateFields.forEach(field => {
     if (cleanedData[field] === '') {
       cleanedData[field] = null
@@ -709,7 +709,7 @@ watch(showAcceptanceFields, (newValue) => {
 watch(showOnlineFirstFields, (newValue) => {
   if (!newValue) {
     showPublicationFields.value = false
-    formData.online_first_date = ''
+    formData.online_first_publication_date = ''
     formData.doi = ''
   }
 })

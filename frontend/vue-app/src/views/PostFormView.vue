@@ -133,7 +133,7 @@ const formatPostData = () => {
 
   delete details.files
   
-  const dateFields = ['preprint_date', 'submission_date', 'acceptance_date', 'publication_date']
+  const dateFields = ['preprint_date', 'submission_date', 'acceptance_date', 'online_first_publication_date', 'publication_date']
   dateFields.forEach(field => {
     if (details[field] === '') {
       details[field] = null

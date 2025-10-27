@@ -231,11 +231,15 @@ const getPublicationStatusForYear = (publication, reportYear) => {
     preprint: publication.preprint_date ? new Date(publication.preprint_date).getFullYear() : null,
     submitted: publication.submission_date ? new Date(publication.submission_date).getFullYear() : null,
     accepted: publication.acceptance_date ? new Date(publication.acceptance_date).getFullYear() : null,
+    online_first: publication.online_first_publication_date ? new Date(publication.online_first_publication_date).getFullYear() : null,
     published: publication.publication_date ? new Date(publication.publication_date).getFullYear() : null
   }
   
   if (dates.published && dates.published <= reportYear) {
     return 'published'
+  }
+  if (dates.online_first && dates.online_first <= reportYear) {
+    return 'online_first'
   }
   if (dates.accepted && dates.accepted <= reportYear) {
     return 'accepted'
@@ -253,8 +257,9 @@ const getPublicationStatusForYear = (publication, reportYear) => {
 const getStatusText = (status) => {
   const statusMap = {
     'preprint': 'Препринт',
-    'submitted': 'Направлена на публикацию', 
+    'submitted': 'Направлена в журнал', 
     'accepted': 'Принята к публикации',
+    'online_first': 'Опубликована online-first',
     'published': 'Опубликована'
   }
   return statusMap[status] || status
@@ -391,7 +396,7 @@ const rejectReport = async () => {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem;
-  border: 1px solid var(--color-border);
+  border: 2px solid var(--color-border);
   margin-bottom: 0.5rem;
   background-color: var(--color-surface);
 }
@@ -404,7 +409,7 @@ const rejectReport = async () => {
 
 .btn-edit, .btn-delete {
   background: none;
-  border: 1px solid var(--color-border);
+  border: 2px solid var(--color-border);
   cursor: pointer;
   padding: 0.5rem;
   margin-left: 0.5rem;
@@ -426,7 +431,7 @@ const rejectReport = async () => {
   padding: 1rem;
   color: var(--color-text-secondary);
   font-style: italic;
-  border: 1px dashed var(--color-border);
+  border: 2px dashed var(--color-border);
   margin-bottom: 0.5rem;
 }
 

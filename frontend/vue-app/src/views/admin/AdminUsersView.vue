@@ -19,10 +19,6 @@
       <p>Загрузка пользователей...</p>
     </div>
 
-    <div v-else-if="error" class="error-state">
-      <p>{{ error }}</p>
-    </div>
-
     <div v-else class="users-table">
       <table>
         <thead>
@@ -141,8 +137,8 @@ const confirmImpersonation = async () => {
   
   impersonating.value = true
   try {
-    await authStore.startImpersonation(selectedUser.value.id)
     showConfirmModal.value = false
+    await authStore.startImpersonation(selectedUser.value.id)
     selectedUser.value = null
     
     router.push('/dashboard')

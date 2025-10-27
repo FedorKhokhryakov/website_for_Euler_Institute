@@ -50,6 +50,8 @@ export const useAuthStore = defineStore('auth', () => {
       if (error.response?.status === 401 || error.response?.status === 403) {
         logout()
       }
+
+      throw error
     } finally {
       isLoading.value = false
     }
