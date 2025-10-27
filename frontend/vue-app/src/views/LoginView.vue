@@ -72,7 +72,15 @@ const handleLogin = async () => {
     await authStore.login(loginData)
     router.push('/dashboard')
   } catch (error) {
-    errorMessage.value = error.message
+    if (error.response?.status === 400 || error.response?.status === 401) {
+      errorMessage.value = 'Неверный логин или пароль'
+    } else if (error.response?.status === 500) {
+      errorMessage.value = 'Ошибка сервера. Попробуйте позже'
+    } else if (error.message?.includes('Network Error')) {
+      errorMessage.value = 'Нет соединения с сервером'
+    } else {
+      errorMessage.value = 'Произошла ошибка при входе'
+    }
   } finally {
     isLoading.value = false
   }
